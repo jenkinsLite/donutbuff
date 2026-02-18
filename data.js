@@ -18,6 +18,36 @@
  *   pricePerExtra - price per individual extra letter (number)
  */
 
+/**
+ * Business configuration — controls date/time availability in the order form.
+ *
+ * hours:
+ *   Each day maps to [openTime, closeTime] in 24-hour "HH:MM" format.
+ *   Use ["00:00", "00:00"] to mark a day as fully closed.
+ *
+ * closedDates:
+ *   An array of overrides that mark specific dates as closed regardless of
+ *   the normal weekly hours. Each entry is either:
+ *     - A day-name string:  "Sunday"  (closes every Sunday)
+ *     - A date array:       ["March", "4", "2026"]  (closes one specific date)
+ */
+const BUSINESS_CONFIG = {
+  hours: {
+    monday:    ["08:00", "15:30"],
+    tuesday:   ["08:00", "15:30"],
+    wednesday: ["08:00", "15:30"],
+    thursday:  ["08:00", "15:30"],
+    friday:    ["08:00", "15:30"],
+    saturday:  ["08:00", "12:00"],
+    sunday:    ["00:00", "00:00"],
+  },
+
+  closedDates: [
+    // ["March", "4", "2026"],  // one-off holiday example
+    // "Sunday",                // redundant with hours above, but supported
+  ],
+};
+
 const MENU_DATA = [
   // ── Yeast Donuts ─────────────────────────────────────────────────────────
   {

@@ -30,6 +30,11 @@ const fmt = (n) => `$${n.toFixed(2)}`;
  */
 const cart = {};
 
+/** Flatpickr instance for the date picker (set in initOrderSection). */
+let _datePicker = null;
+/** Flatpickr instance for the time picker (set in initOrderSection). */
+let _timePicker = null;
+
 // ── On DOM Ready ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initFooterYear();
@@ -228,6 +233,89 @@ function buildMenuCard(item) {
   return card;
 }
 
+// ══════════════════════════════════════════════════ BUSINESS HOURS
+
+const _DAY_KEYS   = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const _MONTH_KEYS = ['january','february','march','april','may','june',
+                     'july','august','september','october','november','december'];
+
+/** Returns true if `date` matches any entry in BUSINESS_CONFIG.closedDates. */
+function isClosedDate(date) {
+  for (const entry of BUSINESS_CONFIG.closedDates) {
+    if (typeof entry === 'string') {
+      if (_DAY_KEYS[date.getDay()] === entry.toLowerCase()) return true;
+    } else if (Array.isArray(entry)) {
+      const [month, day, year] = entry;
+      const mIdx = _MONTH_KEYS.indexOf(month.toLowerCase());
+      if (mIdx !== -1 &&
+          date.getMonth() === mIdx &&
+          date.getDate() === parseInt(day, 10) &&
+          date.getFullYear() === parseInt(year, 10)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Returns [openTime, closeTime] strings for `date`, or null if closed.
+ * closedDates entries take priority over the weekly hours schedule.
+ */
+function getHoursForDate(date) {
+  if (isClosedDate(date)) return null;
+  const h = BUSINESS_CONFIG.hours[_DAY_KEYS[date.getDay()]];
+  if (!h || (h[0] === '00:00' && h[1] === '00:00')) return null;
+  return h;
+}
+
+/** Formats a 24-h "HH:MM" string to "h:MM AM/PM". */
+function fmt12(t) {
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 || 12;
+  return m === 0 ? `${h12} ${ampm}` : `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+/**
+ * Reads the selected date, then enables/disables the time input and sets
+ * its min/max to the business hours for that day.
+ */
+function applyTimeConstraints(dateInput, timeInput) {
+  const dateErrEl = $('#date-error');
+  const altInput  = _timePicker?.altInput ?? null;
+
+  if (!dateInput.value) {
+    timeInput.disabled = false;
+    if (altInput) altInput.disabled = false;
+    if (_timePicker) { _timePicker.set('minTime', null); _timePicker.set('maxTime', null); }
+    return;
+  }
+
+  // Use T12:00:00 so Date() parses in local time, not UTC
+  const date  = new Date(dateInput.value + 'T12:00:00');
+  const hours = getHoursForDate(date);
+
+  if (hours === null) {
+    setError(dateInput, dateErrEl, "Sorry, we're closed on this date. Please choose another day.");
+    if (_timePicker) _timePicker.clear();
+    timeInput.disabled = true;
+    if (altInput) altInput.disabled = true;
+    clearError(timeInput);
+    if (altInput) clearError(altInput);
+  } else {
+    clearError(dateInput);
+    timeInput.disabled = false;
+    if (altInput) altInput.disabled = false;
+    if (_timePicker) {
+      _timePicker.set('minTime', hours[0]);
+      _timePicker.set('maxTime', hours[1]);
+      // Clear a previously-set time that's now out of range
+      if (timeInput.value && (timeInput.value < hours[0] || timeInput.value > hours[1])) {
+        _timePicker.clear();
+      }
+    }
+  }
+}
+
 // ══════════════════════════════════════════════════ ORDER SECTION
 
 function initOrderSection() {
@@ -239,12 +327,78 @@ function initOrderSection() {
     list.appendChild(buildOrderItem(item));
   });
 
-  // Set today's date as min for date picker
-  const dateInput = $('#order-date');
-  if (dateInput) {
+  const dateInputEl = $('#order-date');
+  const timeInput   = $('#order-time');
+
+  if (dateInputEl) {
     const today = new Date().toISOString().split('T')[0];
-    dateInput.setAttribute('min', today);
-    dateInput.value = today;
+
+    // Flatpickr: disables closed dates visually in the calendar
+    _datePicker = flatpickr(dateInputEl, {
+      minDate: 'today',
+      dateFormat: 'Y-m-d',
+      disable: [date => getHoursForDate(date) === null],
+      onChange: () => { if (timeInput) applyTimeConstraints(dateInputEl, timeInput); },
+    });
+
+    _datePicker.setDate(today, false); // pre-select today without triggering onChange
+
+    if (timeInput) {
+      _timePicker = flatpickr(timeInput, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: 'H:i',
+        altInput: true,
+        altFormat: 'h:i K',
+        time_24hr: false,
+        minuteIncrement: 5,
+      });
+
+      // Click-to-clear: only clears the field the user explicitly clicks, not on auto-open
+      const calContainer = _timePicker.calendarContainer;
+      if (calContainer) {
+        const hourInp = calContainer.querySelector('.flatpickr-hour');
+        const minInp  = calContainer.querySelector('.flatpickr-minute');
+
+        if (hourInp) {
+          hourInp.addEventListener('click', () => {
+            hourInp._saved = hourInp.value;
+            hourInp.value = '';
+          });
+          hourInp.addEventListener('blur', () => {
+            if (hourInp.value === '' && hourInp._saved != null) hourInp.value = hourInp._saved;
+          });
+        }
+
+        if (minInp) {
+          minInp.addEventListener('click', () => {
+            minInp._saved = minInp.value;
+            minInp.value = '';
+          });
+          minInp.addEventListener('blur', () => {
+            // Restore if user typed nothing
+            if (minInp.value === '') {
+              minInp.value = minInp._saved ?? '00';
+              return;
+            }
+            // Snap to nearest 5-minute boundary
+            const val = parseInt(minInp.value, 10);
+            if (isNaN(val)) return;
+            let snapped = Math.round(val / 5) * 5;
+            if (snapped >= 60) snapped = 55;
+            const snappedStr = String(snapped).padStart(2, '0');
+            if (minInp.value !== snappedStr) {
+              minInp.value = snappedStr;
+              // Sync flatpickr's internal selected date to the snapped minute
+              const current = _timePicker.selectedDates[0];
+              if (current) { current.setMinutes(snapped); _timePicker.setDate(current, false); }
+            }
+          });
+        }
+      }
+
+      applyTimeConstraints(dateInputEl, timeInput);
+    }
   }
 }
 
@@ -462,6 +616,7 @@ function initForm() {
 }
 
 function validateField(field) {
+  if (field.disabled) return true; // disabled fields (e.g. time on a closed day) are exempt
   clearError(field);
   const errEl = $(`#${field.getAttribute('aria-describedby')}`) ||
                 field.nextElementSibling;
@@ -490,6 +645,26 @@ function validateForm(form) {
   fields.forEach(field => {
     if (!validateField(field)) valid = false;
   });
+
+  // Business-hours validation
+  const dateInput = $('#order-date');
+  const timeInput = $('#order-time');
+  if (dateInput && dateInput.value) {
+    const date     = new Date(dateInput.value + 'T12:00:00');
+    const hours    = getHoursForDate(date);
+    const dateErrEl = $('#date-error');
+    const timeErrEl = $('#time-error');
+    if (hours === null) {
+      setError(dateInput, dateErrEl, "Sorry, we're closed on this date. Please choose another day.");
+      valid = false;
+    } else if (timeInput && !timeInput.disabled && timeInput.value) {
+      if (timeInput.value < hours[0] || timeInput.value > hours[1]) {
+        const displayInput = _timePicker?.altInput || timeInput;
+        setError(displayInput, timeErrEl, `We're open ${fmt12(hours[0])} – ${fmt12(hours[1])} on this day.`);
+        valid = false;
+      }
+    }
+  }
 
   // Check that at least one item is in the cart
   let totalItems = 0;
@@ -636,7 +811,7 @@ function showConfirmationModal(form) {
       pickupRow.className = 'modal-summary-row';
       pickupRow.innerHTML = `
         <span>Pickup</span>
-        <span>${dateVal || ''} ${timeVal || ''}</span>
+        <span>${dateVal || ''} ${timeVal ? fmt12(timeVal) : ''}</span>
       `;
       summary.appendChild(pickupRow);
     }
@@ -681,13 +856,13 @@ function showConfirmationModal(form) {
         }
       });
       updateOrderSummary();
-      // Reset min date
-      const dateInput = $('#order-date');
-      if (dateInput) {
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.setAttribute('min', today);
-        dateInput.value = today;
-      }
+      // Reset date/time pickers and re-apply constraints
+      const today = new Date().toISOString().split('T')[0];
+      if (_datePicker) _datePicker.setDate(today, false);
+      if (_timePicker) _timePicker.clear();
+      const dateInputEl = $('#order-date');
+      const timeInputEl = $('#order-time');
+      if (dateInputEl && timeInputEl) applyTimeConstraints(dateInputEl, timeInputEl);
     };
     doneBtn._resetHandler = resetHandler;
     doneBtn.addEventListener('click', resetHandler, { once: true });

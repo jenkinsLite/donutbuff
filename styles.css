@@ -677,12 +677,16 @@ textarea { resize: vertical; min-height: 80px; }
 input[type="date"],
 input[type="time"] {
   -webkit-appearance: none;
+  /* keep consistent height even when time input has no value yet */
+  min-height: calc(2.6rem + 4px);
 }
 input[type="date"]::-webkit-datetime-edit,
 input[type="time"]::-webkit-datetime-edit {
   display: block;
   padding: 0;
 }
+/* Time input is now a flatpickr-controlled text field — preserve consistent height */
+#order-time { min-height: calc(2.6rem + 4px); }
 
 .field-error {
   font-size: 0.8rem;
@@ -1189,3 +1193,61 @@ input[type="time"]::-webkit-datetime-edit {
   }
   html { scroll-behavior: auto; }
 }
+
+/* ── Flatpickr time-picker overrides ─────────────────────────────────────── */
+
+/* Suppress site's pink focus ring on all time-picker inputs */
+.flatpickr-time input:hover,
+.flatpickr-time input:focus,
+.flatpickr-time input:active,
+.flatpickr-time .flatpickr-am-pm:hover,
+.flatpickr-time .flatpickr-am-pm:focus,
+.flatpickr-time .flatpickr-am-pm:active {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove gray hover tint from hour/minute wrappers and their arrow spans */
+.flatpickr-time .numInputWrapper:hover,
+.flatpickr-time .numInputWrapper span:hover { background: transparent !important; }
+
+/* Remove border/outline from separator and AM/PM */
+.flatpickr-time-separator,
+.flatpickr-time-separator:focus,
+.flatpickr-time-separator:active,
+.flatpickr-am-pm,
+.flatpickr-am-pm:focus,
+.flatpickr-am-pm:active {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove text-selection highlight inside hour/minute inputs */
+.flatpickr-time input::selection      { background: transparent; }
+.flatpickr-time input::-moz-selection { background: transparent; }
+
+/* Remove border on up/down arrow spans */
+.flatpickr-time .numInputWrapper span { border: none; }
+
+/* Replace filled triangle arrows with soft open chevrons (^ / ˅) */
+.flatpickr-time .numInputWrapper span::after {
+  border: none;
+  border-right: 2px solid rgba(57, 57, 57, 0.55);
+  border-top:   2px solid rgba(57, 57, 57, 0.55);
+  width: 5px;
+  height: 5px;
+  top: 50%;
+  left: 50%;
+}
+.flatpickr-time .numInputWrapper span.arrowUp::after {
+  border-bottom: none; /* clear flatpickr's default triangle border */
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.flatpickr-time .numInputWrapper span.arrowDown::after {
+  transform: translate(-50%, -50%) rotate(135deg);
+}
+
+/* Alt input (visible trigger when altInput:true is used) */
+#order-time + input.flatpickr-input { min-height: calc(2.6rem + 4px); }
