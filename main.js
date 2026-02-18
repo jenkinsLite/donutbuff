@@ -2,15 +2,17 @@
  * Donut Buff — Main Application Script
  *
  * Responsibilities:
- *  1. Render menu cards from MENU_DATA (menu-data.js)
+ *  1. Render menu cards from MENU_DATA (data.js)
  *  2. Menu category filtering tabs
- *  3. Ingredient accordion (slide-down)
- *  4. Hamburger nav toggle
- *  5. Active nav link tracking on scroll
- *  6. Order form cart (add / remove / quantity)
- *  7. Order form validation
- *  8. Confirmation modal
- *  9. Footer copyright year
+ *  3. Ingredient accordion (slide-down) per card
+ *  4. Order panel accordion per card (cart controls)
+ *  5. Hamburger nav toggle
+ *  6. Active nav link tracking on scroll
+ *  7. Checkout FAB (shown when cart has items)
+ *  8. Checkout view (itemized cart + Your Information form)
+ *  9. Order form validation
+ * 10. Confirmation modal
+ * 11. Footer copyright year
  */
 
 'use strict';
@@ -26,7 +28,7 @@ const fmt = (n) => `$${n.toFixed(2)}`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 /**
- * Cart: { [itemId]: number }  — quantity per item
+ * Cart: { [itemId]: number | { groups: number, extras: number } }
  */
 const cart = {};
 
@@ -34,6 +36,8 @@ const cart = {};
 let _datePicker = null;
 /** Flatpickr instance for the time picker (set in initOrderSection). */
 let _timePicker = null;
+/** Currently displayed menu category (tracked for post-reset re-render). */
+let _currentCategory = 'All';
 
 // ── On DOM Ready ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initOrderSection();
   initForm();
   initModal();
+  initCheckoutFab();
 });
 
 // ── Footer year ───────────────────────────────────────────────────────────────
@@ -133,6 +138,7 @@ function buildMenuTabs() {
     btn.addEventListener('click', () => {
       $$('.tab-btn', container).forEach(b => b.setAttribute('aria-selected', 'false'));
       btn.setAttribute('aria-selected', 'true');
+      _currentCategory = cat;
       renderMenuItems(cat);
     });
     container.appendChild(btn);
@@ -159,9 +165,14 @@ function buildMenuCard(item) {
   card.className = 'menu-card';
   card.setAttribute('aria-label', `${item.name} ${item.type} Donut`);
 
-  const toppingList  = item.ingredients.topping.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
-  const doughList    = item.ingredients.dough.map(t =>   `<li><span class="ingredient-tag">${t}</span></li>`).join('');
-  const toggleId     = `ingredients-${item.id}`;
+  const toppingList   = item.ingredients.topping.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+  const doughList     = item.ingredients.dough.map(t =>   `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+  const ingredPanelId = `ingredients-${item.id}`;
+  const orderPanelId  = `order-panel-${item.id}`;
+
+  const orderControlsHtml = item.isLetters
+    ? _buildLettersPanelHtml(item)
+    : _buildRegularPanelHtml(item);
 
   card.innerHTML = `
     <div class="menu-card__image-wrap">
@@ -194,18 +205,29 @@ function buildMenuCard(item) {
 
       <p class="menu-card__description">${item.description}</p>
 
-      <button
-        class="ingredients-toggle"
-        aria-expanded="false"
-        aria-controls="${toggleId}"
-        aria-label="Show ingredients for ${item.name}"
-      >
-        <i class="fa-solid fa-list-ul" aria-hidden="true"></i>
-        View Ingredients
-        <span class="toggle-arrow" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
-      </button>
+      <div class="menu-card__action-row">
+        <button
+          class="ingredients-toggle"
+          aria-expanded="false"
+          aria-controls="${ingredPanelId}"
+          aria-label="Show ingredients for ${item.name}"
+        >
+          <i class="fa-solid fa-list-ul" aria-hidden="true"></i>
+          View Ingredients
+          <span class="toggle-arrow" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+        </button>
+        <button
+          class="order-toggle"
+          aria-expanded="false"
+          aria-controls="${orderPanelId}"
+          aria-label="Order ${item.name}"
+        >
+          Order
+          <span class="toggle-arrow" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+        </button>
+      </div>
 
-      <div class="ingredients-panel" id="${toggleId}" role="region" aria-label="${item.name} ingredients">
+      <div class="ingredients-panel" id="${ingredPanelId}" role="region" aria-label="${item.name} ingredients">
         <div class="ingredients-inner">
           <div class="ingredient-group">
             <h4>Topping</h4>
@@ -217,20 +239,434 @@ function buildMenuCard(item) {
           </div>
         </div>
       </div>
+
+      <div class="order-panel" id="${orderPanelId}" role="region" aria-label="Order ${item.name}">
+        <div class="order-panel__inner">
+          ${orderControlsHtml}
+          <div class="order-panel__actions">
+            ${!item.isLetters ? `<button class="qty-btn delete order-panel__delete-btn" data-action="delete" aria-label="Remove all ${item.name}" title="Remove from order"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
+            <button class="btn btn--primary order-panel__checkout-btn" type="button" aria-label="Proceed to checkout">
+              <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
+              Checkout
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
-  // Accordion toggle
-  const toggle = card.querySelector('.ingredients-toggle');
-  const panel  = card.querySelector('.ingredients-panel');
+  // Ingredients accordion
+  const ingredToggle = card.querySelector('.ingredients-toggle');
+  const ingredPanel  = card.querySelector('.ingredients-panel');
+  ingredToggle.addEventListener('click', () => {
+    const open = ingredPanel.classList.toggle('open');
+    ingredToggle.setAttribute('aria-expanded', String(open));
+    ingredToggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ingredients for ${item.name}`);
+  });
 
-  toggle.addEventListener('click', () => {
-    const open = panel.classList.toggle('open');
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ingredients for ${item.name}`);
+  // Order accordion
+  const orderToggle = card.querySelector('.order-toggle');
+  const orderPanel  = card.querySelector('.order-panel');
+  orderToggle.addEventListener('click', () => {
+    const opening = !orderPanel.classList.contains('open');
+
+    // Close every other open order panel first
+    if (opening) {
+      document.querySelectorAll('.order-panel.open').forEach(p => {
+        p.classList.remove('open');
+        const t = p.closest('.menu-card')?.querySelector('.order-toggle');
+        if (t) {
+          t.setAttribute('aria-expanded', 'false');
+          t.setAttribute('aria-label', t.getAttribute('aria-label').replace('Hide', 'Show'));
+        }
+      });
+    }
+
+    orderPanel.classList.toggle('open', opening);
+    orderToggle.setAttribute('aria-expanded', String(opening));
+    orderToggle.setAttribute('aria-label', `${opening ? 'Hide' : 'Show'} order for ${item.name}`);
+  });
+
+  // Wire up cart controls
+  if (item.isLetters) {
+    _wireLettersPanelControls(card, item);
+  } else {
+    _wireRegularPanelControls(card, item);
+  }
+
+  // Checkout button inside order panel
+  card.querySelector('.order-panel__checkout-btn').addEventListener('click', () => {
+    showCheckoutView();
   });
 
   return card;
+}
+
+function _buildRegularPanelHtml(item) {
+  const qty = cart[item.id] || 0;
+  return `
+    <div class="letters-row">
+      <span class="letters-row__label">
+        <span class="letters-row__price">${fmt(item.price)}</span> ea
+        <span class="order-panel__pricing-sub"> · ${fmt(item.dozen)} / dz</span>
+      </span>
+      <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
+      <span class="qty-display" aria-live="polite" aria-label="${item.name} quantity: ${qty}">${qty}</span>
+      <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
+      <span class="item-subtotal" aria-live="polite">${fmt(qty * item.price)}</span>
+    </div>
+  `;
+}
+
+function _buildLettersPanelHtml(item) {
+  const cbId    = `pack-cb-${item.id}`;
+  const groups  = cart[item.id]?.groups || 0;
+  const extras  = cart[item.id]?.extras || 0;
+  const locked  = groups === 0;
+  return `
+    <div class="order-item__controls order-item__controls--letters">
+      <div class="letters-row letters-row--pack" data-row="groups">
+        <label class="pack-checkbox-label" for="${cbId}">
+          <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
+          <input type="checkbox" class="pack-checkbox" id="${cbId}"
+            aria-label="Add 6-letter pack for ${fmt(item.pricePerGroup)}"
+            ${groups > 0 ? 'checked' : ''} />
+          <span class="pack-checkbox-custom" aria-hidden="true"></span>
+        </label>
+        <span class="item-subtotal" data-target="groups" aria-live="polite">${fmt(groups * item.pricePerGroup)}</span>
+      </div>
+      <div class="letters-row letters-row--extras${locked ? ' letters-row--disabled' : ''}" data-row="extras">
+        <span class="letters-row__label">Extra letter <span class="letters-row__price">${fmt(item.pricePerExtra)} ea</span></span>
+        <button class="qty-btn minus" data-action="minus" data-target="extras"
+          aria-label="Remove one extra letter" ${locked ? 'disabled' : ''}>−</button>
+        <span class="qty-display" data-target="extras" aria-live="polite" aria-label="Extra letters: ${extras}">${extras}</span>
+        <button class="qty-btn plus" data-action="plus" data-target="extras"
+          aria-label="Add one extra letter" ${locked ? 'disabled' : ''}>+</button>
+        <span class="item-subtotal" data-target="extras" aria-live="polite">${fmt(extras * item.pricePerExtra)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function _wireRegularPanelControls(card, item) {
+  const qtyDisplay = card.querySelector('.qty-display');
+  const subtotal   = card.querySelector('.item-subtotal');
+
+  card.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'plus')        cart[item.id]++;
+      else if (action === 'minus')  { if (cart[item.id] > 0) cart[item.id]--; }
+      else if (action === 'delete') cart[item.id] = 0;
+
+      const qty = cart[item.id];
+      qtyDisplay.textContent = qty;
+      qtyDisplay.setAttribute('aria-label', `${item.name} quantity: ${qty}`);
+      subtotal.textContent = fmt(qty * item.price);
+      updateOrderSummary();
+      _syncCheckoutItem(item);
+    });
+  });
+}
+
+function _wireLettersPanelControls(card, item) {
+  const checkbox   = card.querySelector('.pack-checkbox');
+  const extrasRow  = card.querySelector('[data-row="extras"]');
+  const extrasBtns = card.querySelectorAll('.qty-btn[data-target="extras"]');
+
+  function refreshExtrasLock() {
+    const locked = cart[item.id].groups === 0;
+    extrasRow.classList.toggle('letters-row--disabled', locked);
+    extrasBtns.forEach(btn => { btn.disabled = locked; });
+    if (locked && cart[item.id].extras > 0) {
+      cart[item.id].extras = 0;
+      card.querySelector('.qty-display[data-target="extras"]').textContent = '0';
+      card.querySelector('.item-subtotal[data-target="extras"]').textContent = '$0.00';
+    }
+  }
+
+  checkbox.addEventListener('change', () => {
+    cart[item.id].groups = checkbox.checked ? 1 : 0;
+    card.querySelector('.item-subtotal[data-target="groups"]').textContent =
+      checkbox.checked ? fmt(item.pricePerGroup) : '$0.00';
+    refreshExtrasLock();
+    updateOrderSummary();
+    _syncCheckoutItem(item);
+  });
+
+  card.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'plus')       cart[item.id].extras++;
+      else if (action === 'minus') { if (cart[item.id].extras > 0) cart[item.id].extras--; }
+
+      const extras = cart[item.id].extras;
+      card.querySelector('.qty-display[data-target="extras"]').textContent = extras;
+      card.querySelector('.item-subtotal[data-target="extras"]').textContent = fmt(extras * item.pricePerExtra);
+      updateOrderSummary();
+      _syncCheckoutItem(item);
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════ CHECKOUT FAB
+
+function initCheckoutFab() {
+  const fab = $('#checkout-fab');
+  if (!fab) return;
+  fab.addEventListener('click', () => showCheckoutView());
+}
+
+// ══════════════════════════════════════════════════ CHECKOUT VIEW
+
+function showCheckoutView() {
+  const emptyEl   = $('#checkout-empty');
+  const viewEl    = $('#checkout-view');
+  const cartItems = $('#checkout-cart-items');
+  if (!viewEl || !cartItems) return;
+
+  cartItems.innerHTML = '';
+  let hasItems = false;
+
+  MENU_DATA.forEach(item => {
+    const isOrdered = item.isLetters
+      ? (cart[item.id]?.groups || 0) > 0
+      : (cart[item.id] || 0) > 0;
+    if (!isOrdered) return;
+    hasItems = true;
+    cartItems.appendChild(_buildCheckoutItem(item));
+  });
+
+  if (!hasItems) return;
+
+  if (emptyEl) emptyEl.hidden = true;
+  viewEl.hidden = false;
+  updateOrderSummary();
+  document.getElementById('order')?.scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => $('#customer-name')?.focus(), 450);
+}
+
+/** Build and wire a single checkout cart item element. */
+function _buildCheckoutItem(item) {
+  const el = document.createElement('div');
+  el.className = 'checkout-cart-item';
+  el.setAttribute('role', 'listitem');
+  el.dataset.itemId = item.id;
+
+  let qtyLabel, subtotal;
+  if (item.isLetters) {
+    const { groups, extras } = cart[item.id];
+    subtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
+    qtyLabel = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+  } else {
+    const qty = cart[item.id];
+    subtotal = qty * item.price;
+    qtyLabel = `× ${qty}`;
+  }
+
+  const editRowHtml = item.isLetters
+    ? `<div class="checkout-cart-item__edit-row" hidden>
+         <span class="checkout-edit-label">Extra letters</span>
+         <button class="qty-btn minus" data-action="minus" aria-label="Remove one extra letter">−</button>
+         <span class="qty-display">${cart[item.id].extras}</span>
+         <button class="qty-btn plus" data-action="plus" aria-label="Add one extra letter">+</button>
+         <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+           <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+         </button>
+       </div>`
+    : `<div class="checkout-cart-item__edit-row" hidden>
+         <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
+         <span class="qty-display">${cart[item.id]}</span>
+         <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
+         <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+           <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+         </button>
+       </div>`;
+
+  el.innerHTML = `
+    <div class="checkout-cart-item__thumb" aria-hidden="true">
+      <img
+        src="${item.image}"
+        alt="${item.name} donut"
+        loading="lazy"
+        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
+      />
+    </div>
+    <div class="checkout-cart-item__info">
+      <div class="checkout-cart-item__name">${item.name} ${item.type}</div>
+      <div class="checkout-cart-item__qty">${qtyLabel}</div>
+    </div>
+    <div class="checkout-cart-item__price-col">
+      <span class="checkout-cart-item__subtotal">${fmt(subtotal)}</span>
+      <div class="checkout-item__btns">
+        <button class="checkout-delete-btn" aria-label="Remove ${item.name} from order">Delete</button>
+        <button class="checkout-edit-btn" aria-expanded="false" aria-label="Edit ${item.name} in order">Edit</button>
+      </div>
+    </div>
+    ${editRowHtml}
+  `;
+
+  // Toggle edit row
+  const editBtn = el.querySelector('.checkout-edit-btn');
+  const editRow = el.querySelector('.checkout-cart-item__edit-row');
+  editBtn.addEventListener('click', () => {
+    const opening = editRow.hidden;
+    editRow.hidden = !opening;
+    editBtn.setAttribute('aria-expanded', String(opening));
+    editBtn.textContent = opening ? 'Done' : 'Edit';
+  });
+
+  // Delete button — remove item entirely
+  el.querySelector('.checkout-delete-btn').addEventListener('click', () => {
+    cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
+    _syncMenuCard(item);
+    el.remove();
+    _checkCheckoutEmpty();
+    updateOrderSummary();
+  });
+
+  // Wire qty controls
+  const qtyDisplayEl = el.querySelector('.qty-display');
+  const qtyLabelEl   = el.querySelector('.checkout-cart-item__qty');
+  const subtotalEl   = el.querySelector('.checkout-cart-item__subtotal');
+
+  el.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+
+      if (item.isLetters) {
+        if (action === 'plus')        cart[item.id].extras++;
+        else if (action === 'minus')  { if (cart[item.id].extras > 0) cart[item.id].extras--; }
+        else if (action === 'delete') { cart[item.id] = { groups: 0, extras: 0 }; }
+
+        _syncMenuCard(item);
+
+        if (cart[item.id].groups === 0) {
+          el.remove();
+          _checkCheckoutEmpty();
+          updateOrderSummary();
+          return;
+        }
+
+        const { groups, extras } = cart[item.id];
+        const newSubtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
+        qtyDisplayEl.textContent = extras;
+        qtyLabelEl.textContent   = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+        subtotalEl.textContent   = fmt(newSubtotal);
+      } else {
+        if (action === 'plus')        cart[item.id]++;
+        else if (action === 'minus')  { if (cart[item.id] > 0) cart[item.id]--; }
+        else if (action === 'delete') cart[item.id] = 0;
+
+        _syncMenuCard(item);
+
+        if (cart[item.id] === 0) {
+          el.remove();
+          _checkCheckoutEmpty();
+          updateOrderSummary();
+          return;
+        }
+
+        const qty = cart[item.id];
+        qtyDisplayEl.textContent = qty;
+        qtyLabelEl.textContent   = `× ${qty}`;
+        subtotalEl.textContent   = fmt(qty * item.price);
+      }
+
+      updateOrderSummary();
+    });
+  });
+
+  return el;
+}
+
+function _checkCheckoutEmpty() {
+  const cartItems = $('#checkout-cart-items');
+  if (!cartItems || cartItems.children.length > 0) return;
+  const emptyEl = $('#checkout-empty');
+  const viewEl  = $('#checkout-view');
+  if (viewEl)  viewEl.hidden = true;
+  if (emptyEl) emptyEl.hidden = false;
+}
+
+/**
+ * Called from menu card controls to keep the checkout view in sync.
+ * Adds, updates, or removes the checkout row for this item without
+ * rebuilding the whole list.
+ */
+function _syncCheckoutItem(item) {
+  const viewEl = $('#checkout-view');
+  if (!viewEl || viewEl.hidden) return;
+
+  const cartItems = $('#checkout-cart-items');
+  if (!cartItems) return;
+
+  const existing  = cartItems.querySelector(`[data-item-id="${item.id}"]`);
+  const isOrdered = item.isLetters
+    ? (cart[item.id]?.groups || 0) > 0
+    : (cart[item.id] || 0) > 0;
+
+  if (isOrdered) {
+    if (existing) {
+      // Update in place
+      const qtyLabelEl   = existing.querySelector('.checkout-cart-item__qty');
+      const subtotalEl   = existing.querySelector('.checkout-cart-item__subtotal');
+      const qtyDisplayEl = existing.querySelector('.qty-display');
+
+      if (item.isLetters) {
+        const { groups, extras } = cart[item.id];
+        const newSubtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
+        if (qtyLabelEl)   qtyLabelEl.textContent   = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+        if (subtotalEl)   subtotalEl.textContent   = fmt(newSubtotal);
+        if (qtyDisplayEl) qtyDisplayEl.textContent = extras;
+      } else {
+        const qty = cart[item.id];
+        if (qtyLabelEl)   qtyLabelEl.textContent   = `× ${qty}`;
+        if (subtotalEl)   subtotalEl.textContent   = fmt(qty * item.price);
+        if (qtyDisplayEl) qtyDisplayEl.textContent = qty;
+      }
+    } else {
+      // First time this item is ordered — append a new row
+      cartItems.appendChild(_buildCheckoutItem(item));
+      // Ensure the view is visible
+      const emptyEl = $('#checkout-empty');
+      if (emptyEl) emptyEl.hidden = true;
+      viewEl.hidden = false;
+    }
+  } else if (existing) {
+    existing.remove();
+    _checkCheckoutEmpty();
+  }
+}
+
+/** Push current cart state back into the visible menu card for this item. */
+function _syncMenuCard(item) {
+  const menuCard = document.querySelector(`#order-panel-${item.id}`)?.closest('.menu-card');
+  if (!menuCard) return;
+
+  if (item.isLetters) {
+    const { groups = 0, extras = 0 } = cart[item.id] || {};
+    const checkbox   = menuCard.querySelector('.pack-checkbox');
+    const extrasRow  = menuCard.querySelector('[data-row="extras"]');
+    const extrasBtns = menuCard.querySelectorAll('.qty-btn[data-target="extras"]');
+    const extrasQd   = menuCard.querySelector('.qty-display[data-target="extras"]');
+    const extrasSt   = menuCard.querySelector('.item-subtotal[data-target="extras"]');
+    const groupsSt   = menuCard.querySelector('.item-subtotal[data-target="groups"]');
+
+    if (checkbox)  checkbox.checked = groups > 0;
+    if (extrasQd)  extrasQd.textContent = extras;
+    if (extrasSt)  extrasSt.textContent = fmt(extras * item.pricePerExtra);
+    if (groupsSt)  groupsSt.textContent = fmt(groups * item.pricePerGroup);
+    const locked = groups === 0;
+    if (extrasRow) extrasRow.classList.toggle('letters-row--disabled', locked);
+    extrasBtns.forEach(btn => { btn.disabled = locked; });
+  } else {
+    const qty = cart[item.id] || 0;
+    const qd  = menuCard.querySelector('.qty-display');
+    const st  = menuCard.querySelector('.item-subtotal');
+    if (qd) qd.textContent = qty;
+    if (st) st.textContent = fmt(qty * item.price);
+  }
 }
 
 // ══════════════════════════════════════════════════ BUSINESS HOURS
@@ -258,7 +694,6 @@ function isClosedDate(date) {
 
 /**
  * Returns [openTime, closeTime] strings for `date`, or null if closed.
- * closedDates entries take priority over the weekly hours schedule.
  */
 function getHoursForDate(date) {
   if (isClosedDate(date)) return null;
@@ -290,7 +725,6 @@ function applyTimeConstraints(dateInput, timeInput) {
     return;
   }
 
-  // Use T12:00:00 so Date() parses in local time, not UTC
   const date  = new Date(dateInput.value + 'T12:00:00');
   const hours = getHoursForDate(date);
 
@@ -308,7 +742,6 @@ function applyTimeConstraints(dateInput, timeInput) {
     if (_timePicker) {
       _timePicker.set('minTime', hours[0]);
       _timePicker.set('maxTime', hours[1]);
-      // Clear a previously-set time that's now out of range
       if (timeInput.value && (timeInput.value < hours[0] || timeInput.value > hours[1])) {
         _timePicker.clear();
       }
@@ -319,12 +752,9 @@ function applyTimeConstraints(dateInput, timeInput) {
 // ══════════════════════════════════════════════════ ORDER SECTION
 
 function initOrderSection() {
-  const list = $('#order-item-list');
-  if (!list) return;
-
+  // Initialise cart state for all items
   MENU_DATA.forEach(item => {
     cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
-    list.appendChild(buildOrderItem(item));
   });
 
   const dateInputEl = $('#order-date');
@@ -333,7 +763,6 @@ function initOrderSection() {
   if (dateInputEl) {
     const today = new Date().toISOString().split('T')[0];
 
-    // Flatpickr: disables closed dates visually in the calendar
     _datePicker = flatpickr(dateInputEl, {
       minDate: 'today',
       dateFormat: 'Y-m-d',
@@ -341,7 +770,7 @@ function initOrderSection() {
       onChange: () => { if (timeInput) applyTimeConstraints(dateInputEl, timeInput); },
     });
 
-    _datePicker.setDate(today, false); // pre-select today without triggering onChange
+    _datePicker.setDate(today, false);
 
     if (timeInput) {
       _timePicker = flatpickr(timeInput, {
@@ -354,7 +783,6 @@ function initOrderSection() {
         minuteIncrement: 5,
       });
 
-      // Click-to-clear: only clears the field the user explicitly clicks, not on auto-open
       const calContainer = _timePicker.calendarContainer;
       if (calContainer) {
         const hourInp = calContainer.querySelector('.flatpickr-hour');
@@ -376,12 +804,10 @@ function initOrderSection() {
             minInp.value = '';
           });
           minInp.addEventListener('blur', () => {
-            // Restore if user typed nothing
             if (minInp.value === '') {
               minInp.value = minInp._saved ?? '00';
               return;
             }
-            // Snap to nearest 5-minute boundary
             const val = parseInt(minInp.value, 10);
             if (isNaN(val)) return;
             let snapped = Math.round(val / 5) * 5;
@@ -389,7 +815,6 @@ function initOrderSection() {
             const snappedStr = String(snapped).padStart(2, '0');
             if (minInp.value !== snappedStr) {
               minInp.value = snappedStr;
-              // Sync flatpickr's internal selected date to the snapped minute
               const current = _timePicker.selectedDates[0];
               if (current) { current.setMinutes(snapped); _timePicker.setDate(current, false); }
             }
@@ -400,170 +825,6 @@ function initOrderSection() {
       applyTimeConstraints(dateInputEl, timeInput);
     }
   }
-}
-
-function buildOrderItem(item) {
-  if (item.isLetters) return buildLettersOrderItem(item);
-  const row = document.createElement('div');
-  row.className = 'order-item';
-  row.setAttribute('role', 'listitem');
-  row.setAttribute('data-item-id', item.id);
-  row.setAttribute('aria-label', `${item.name} — quantity selector`);
-
-  row.innerHTML = `
-    <div class="order-item__thumb" aria-hidden="true">
-      <img
-        src="${item.image}"
-        alt="${item.name} donut"
-        loading="lazy"
-        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
-      />
-    </div>
-
-    <div class="order-item__info">
-      <div class="order-item__name">${item.name}</div>
-      <div class="order-item__type">${item.type} Donut</div>
-      <div class="order-item__unit-price">${fmt(item.price)} each</div>
-    </div>
-
-    <div class="order-item__controls">
-      <button
-        class="qty-btn minus"
-        data-action="minus"
-        aria-label="Remove one ${item.name} from order"
-      >−</button>
-      <span class="qty-display" aria-live="polite" aria-label="${item.name} quantity">0</span>
-      <button
-        class="qty-btn plus"
-        data-action="plus"
-        aria-label="Add one ${item.name} to order"
-      >+</button>
-      <button
-        class="qty-btn delete"
-        data-action="delete"
-        aria-label="Remove all ${item.name} from order"
-        title="Remove all"
-      >
-        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-      </button>
-      <span class="item-subtotal" aria-live="polite" aria-label="${item.name} subtotal">$0.00</span>
-    </div>
-  `;
-
-  const qtyDisplay = row.querySelector('.qty-display');
-  const subtotal   = row.querySelector('.item-subtotal');
-
-  row.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-
-      if (action === 'plus') {
-        cart[item.id]++;
-      } else if (action === 'minus') {
-        if (cart[item.id] > 0) cart[item.id]--;
-      } else if (action === 'delete') {
-        cart[item.id] = 0;
-      }
-
-      const qty = cart[item.id];
-      qtyDisplay.textContent = qty;
-      qtyDisplay.setAttribute('aria-label', `${item.name} quantity: ${qty}`);
-      subtotal.textContent = fmt(qty * item.price);
-      subtotal.setAttribute('aria-label', `${item.name} subtotal: ${fmt(qty * item.price)}`);
-
-      row.classList.toggle('has-items', qty > 0);
-      updateOrderSummary();
-    });
-  });
-
-  return row;
-}
-
-function buildLettersOrderItem(item) {
-  const row = document.createElement('div');
-  row.className = 'order-item order-item--letters';
-  row.setAttribute('role', 'listitem');
-  row.setAttribute('data-item-id', item.id);
-  row.setAttribute('aria-label', `${item.name} — quantity selector`);
-
-  const cbId = `pack-cb-${item.id}`;
-
-  row.innerHTML = `
-    <div class="order-item__thumb" aria-hidden="true">
-      <img
-        src="${item.image}"
-        alt="${item.name} donut"
-        loading="lazy"
-        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
-      />
-    </div>
-
-    <div class="order-item__info">
-      <div class="order-item__name">${item.name}</div>
-      <div class="order-item__type">${item.type} Donut</div>
-    </div>
-
-    <div class="order-item__controls order-item__controls--letters">
-      <div class="letters-row letters-row--pack" data-row="groups">
-        <label class="pack-checkbox-label" for="${cbId}">
-          <input type="checkbox" class="pack-checkbox" id="${cbId}" aria-label="Add 6-letter pack for ${fmt(item.pricePerGroup)}" />
-          <span class="pack-checkbox-custom" aria-hidden="true"></span>
-          <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
-        </label>
-        <span class="item-subtotal" data-target="groups" aria-live="polite">$0.00</span>
-      </div>
-
-      <div class="letters-row letters-row--extras letters-row--disabled" data-row="extras">
-        <span class="letters-row__label">Extra letter <span class="letters-row__price">${fmt(item.pricePerExtra)} ea</span></span>
-        <button class="qty-btn minus" data-action="minus" data-target="extras" aria-label="Remove one extra letter" disabled>−</button>
-        <span class="qty-display" data-target="extras" aria-live="polite" aria-label="Extra letters: 0">0</span>
-        <button class="qty-btn plus" data-action="plus" data-target="extras" aria-label="Add one extra letter" disabled>+</button>
-        <span class="item-subtotal" data-target="extras" aria-live="polite">$0.00</span>
-      </div>
-    </div>
-  `;
-
-  const checkbox   = row.querySelector('.pack-checkbox');
-  const extrasRow  = row.querySelector('[data-row="extras"]');
-  const extrasBtns = row.querySelectorAll('.qty-btn[data-target="extras"]');
-
-  function refreshExtrasLock() {
-    const locked = cart[item.id].groups === 0;
-    extrasRow.classList.toggle('letters-row--disabled', locked);
-    extrasBtns.forEach(btn => { btn.disabled = locked; });
-    if (locked && cart[item.id].extras > 0) {
-      cart[item.id].extras = 0;
-      row.querySelector('.qty-display[data-target="extras"]').textContent = '0';
-      row.querySelector('.item-subtotal[data-target="extras"]').textContent = '$0.00';
-    }
-  }
-
-  checkbox.addEventListener('change', () => {
-    cart[item.id].groups = checkbox.checked ? 1 : 0;
-    row.querySelector('.item-subtotal[data-target="groups"]').textContent =
-      checkbox.checked ? fmt(item.pricePerGroup) : '$0.00';
-    row.classList.toggle('has-items', checkbox.checked || cart[item.id].extras > 0);
-    refreshExtrasLock();
-    updateOrderSummary();
-  });
-
-  row.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-      if (action === 'plus') {
-        cart[item.id].extras++;
-      } else if (action === 'minus') {
-        if (cart[item.id].extras > 0) cart[item.id].extras--;
-      }
-      const extras = cart[item.id].extras;
-      row.querySelector('.qty-display[data-target="extras"]').textContent = extras;
-      row.querySelector('.item-subtotal[data-target="extras"]').textContent = fmt(extras * item.pricePerExtra);
-      row.classList.toggle('has-items', cart[item.id].groups > 0 || extras > 0);
-      updateOrderSummary();
-    });
-  });
-
-  return row;
 }
 
 function updateOrderSummary() {
@@ -586,6 +847,15 @@ function updateOrderSummary() {
   const totalEl = $('#summary-total');
   if (countEl) countEl.textContent = totalQty;
   if (totalEl) totalEl.textContent = fmt(totalPrice);
+
+  // Update checkout FAB
+  const fab      = $('#checkout-fab');
+  const fabCount = $('#checkout-fab-count');
+  if (fab) {
+    fab.hidden = totalQty === 0;
+    fab.setAttribute('aria-label', `Checkout — ${totalQty} item${totalQty !== 1 ? 's' : ''} in cart`);
+  }
+  if (fabCount) fabCount.textContent = totalQty;
 }
 
 // ══════════════════════════════════════════════════ FORM VALIDATION & SUBMIT
@@ -610,7 +880,7 @@ function initForm() {
 }
 
 function validateField(field) {
-  if (field.disabled) return true; // disabled fields (e.g. time on a closed day) are exempt
+  if (field.disabled) return true;
   clearError(field);
   const errEl = $(`#${field.getAttribute('aria-describedby')}`) ||
                 field.nextElementSibling;
@@ -644,8 +914,8 @@ function validateForm(form) {
   const dateInput = $('#order-date');
   const timeInput = $('#order-time');
   if (dateInput && dateInput.value) {
-    const date     = new Date(dateInput.value + 'T12:00:00');
-    const hours    = getHoursForDate(date);
+    const date      = new Date(dateInput.value + 'T12:00:00');
+    const hours     = getHoursForDate(date);
     const dateErrEl = $('#date-error');
     const timeErrEl = $('#time-error');
     if (hours === null) {
@@ -669,19 +939,8 @@ function validateForm(form) {
       totalItems += cart[item.id] || 0;
     }
   });
+
   if (totalItems === 0) {
-    const list = $('#order-item-list');
-    if (list) {
-      // Scroll the item list into view and briefly highlight it
-      list.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      list.style.outline = '3px solid var(--color-error)';
-      list.setAttribute('aria-label', 'Please select at least one donut');
-      setTimeout(() => {
-        list.style.outline = '';
-        list.setAttribute('aria-label', 'Donut selection list');
-      }, 2500);
-    }
-    // Insert an inline error notice above the list
     let cartError = $('#cart-error');
     if (!cartError) {
       cartError = document.createElement('p');
@@ -689,9 +948,12 @@ function validateForm(form) {
       cartError.className = 'field-error';
       cartError.setAttribute('role', 'alert');
       cartError.style.marginBottom = 'var(--space-sm)';
-      list.parentElement.insertBefore(cartError, list);
+      const actions = form.querySelector('.form-actions');
+      if (actions) form.insertBefore(cartError, actions);
+      else form.appendChild(cartError);
     }
     cartError.textContent = 'Please add at least one donut to your order.';
+    cartError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     valid = false;
   } else {
     const cartError = $('#cart-error');
@@ -721,7 +983,7 @@ function isValidPhone(v)  { return /^[\d\s\-().+]{7,}$/.test(v); }
 // ══════════════════════════════════════════════════ CONFIRMATION MODAL
 
 function initModal() {
-  const modal   = $('#confirmation-modal');
+  const modal    = $('#confirmation-modal');
   const closeBtn = $('#modal-close');
   const doneBtn  = $('#modal-done');
   if (!modal) return;
@@ -729,7 +991,6 @@ function initModal() {
   const close = () => {
     modal.hidden = true;
     modal.setAttribute('aria-hidden', 'true');
-    // Return focus to submit button
     const submitBtn = $('#submit-order-btn');
     if (submitBtn) submitBtn.focus();
   };
@@ -737,10 +998,8 @@ function initModal() {
   closeBtn?.addEventListener('click', close);
   doneBtn?.addEventListener('click', close);
 
-  // Close on backdrop click
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 
-  // Trap focus inside modal when open
   modal.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') close();
     if (e.key === 'Tab') {
@@ -762,7 +1021,6 @@ function showConfirmationModal(form) {
   const summary = $('#modal-summary');
   if (!modal) return;
 
-  // Build summary rows
   if (summary) {
     summary.innerHTML = '';
 
@@ -786,14 +1044,10 @@ function showConfirmationModal(form) {
 
       const row = document.createElement('div');
       row.className = 'modal-summary-row';
-      row.innerHTML = `
-        <span>${label}</span>
-        <span>${fmt(subtotal)}</span>
-      `;
+      row.innerHTML = `<span>${label}</span><span>${fmt(subtotal)}</span>`;
       summary.appendChild(row);
     });
 
-    // Pickup details
     const dateVal = $('#order-date')?.value;
     const timeVal = $('#order-time')?.value;
     if (dateVal || timeVal) {
@@ -810,49 +1064,41 @@ function showConfirmationModal(form) {
       summary.appendChild(pickupRow);
     }
 
-    // Total row
     const totalRow = document.createElement('div');
     totalRow.className = 'modal-summary-row total';
     totalRow.innerHTML = `<span>Order Total</span><span>${fmt(total)}</span>`;
     summary.appendChild(totalRow);
   }
 
-  // Show modal
   modal.hidden = false;
   modal.removeAttribute('aria-hidden');
-
-  // Focus close button
   setTimeout(() => $('#modal-close')?.focus(), 50);
 
-  // Reset form and cart after a short delay (so user can read the modal first)
-  // The actual reset happens when user clicks Done
   const doneBtn = $('#modal-done');
   if (doneBtn) {
     const originalClick = doneBtn._resetHandler;
     if (originalClick) doneBtn.removeEventListener('click', originalClick);
+
     const resetHandler = () => {
       form.reset();
+
+      // Reset cart state
       MENU_DATA.forEach(item => {
         cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
-        const row = $(`[data-item-id="${item.id}"]`);
-        if (row) {
-          if (item.isLetters) {
-            const cb = row.querySelector('.pack-checkbox');
-            if (cb) cb.checked = false;
-            row.querySelectorAll('.item-subtotal').forEach(d => { d.textContent = '$0.00'; });
-            row.querySelector('.qty-display[data-target="extras"]').textContent = '0';
-            const extrasRow = row.querySelector('[data-row="extras"]');
-            if (extrasRow) extrasRow.classList.add('letters-row--disabled');
-            row.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => { btn.disabled = true; });
-          } else {
-            row.querySelector('.qty-display').textContent = '0';
-            row.querySelector('.item-subtotal').textContent = '$0.00';
-          }
-          row.classList.remove('has-items');
-        }
       });
+
+      // Re-render menu cards (they read from cart{}, all panels show zeroed state)
+      renderMenuItems(_currentCategory);
+
+      // Return to empty checkout state
+      const checkoutView  = $('#checkout-view');
+      const checkoutEmpty = $('#checkout-empty');
+      if (checkoutView)  checkoutView.hidden = true;
+      if (checkoutEmpty) checkoutEmpty.hidden = false;
+
       updateOrderSummary();
-      // Reset date/time pickers and re-apply constraints
+
+      // Reset date/time pickers
       const today = new Date().toISOString().split('T')[0];
       if (_datePicker) _datePicker.setDate(today, false);
       if (_timePicker) _timePicker.clear();
@@ -860,6 +1106,7 @@ function showConfirmationModal(form) {
       const timeInputEl = $('#order-time');
       if (dateInputEl && timeInputEl) applyTimeConstraints(dateInputEl, timeInputEl);
     };
+
     doneBtn._resetHandler = resetHandler;
     doneBtn.addEventListener('click', resetHandler, { once: true });
   }

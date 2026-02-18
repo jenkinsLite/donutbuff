@@ -114,12 +114,12 @@
         <a href="#order" class="btn btn--primary hero-cta" aria-label="Place an order">Order Now</a>
       </div>
       <div class="hero-donut-deco" aria-hidden="true">
-        <div class="deco-donut deco-donut--1"><img src="images/donut-bg.jpg" alt="" /></div>
-        <div class="deco-donut deco-donut--2"><img src="images/donut-bg.jpg" alt="" /></div>
-        <div class="deco-donut deco-donut--3"><img src="images/donut-bg.jpg" alt="" /></div>
-        <div class="deco-donut deco-donut--4"><img src="images/donut-bg.jpg" alt="" /></div>
-        <div class="deco-donut deco-donut--5"><img src="images/donut-bg.jpg" alt="" /></div>
-        <div class="deco-donut deco-donut--6"><img src="images/donut-bg.jpg" alt="" /></div>
+        <div class="deco-donut deco-donut--1"><img src="images/donut-bg.png" alt="" /></div>
+        <div class="deco-donut deco-donut--2"><img src="images/donut-bg.png" alt="" /></div>
+        <div class="deco-donut deco-donut--3"><img src="images/donut-bg.png" alt="" /></div>
+        <div class="deco-donut deco-donut--4"><img src="images/donut-bg.png" alt="" /></div>
+        <div class="deco-donut deco-donut--5"><img src="images/donut-bg.png" alt="" /></div>
+        <div class="deco-donut deco-donut--6"><img src="images/donut-bg.png" alt="" /></div>
       </div>
     </section>
 
@@ -127,7 +127,7 @@
     <section id="menu" class="section section--menu" aria-labelledby="menu-heading">
       <div class="section-inner">
         <h2 id="menu-heading" class="section-title">Our Menu</h2>
-        <p class="section-subtitle">Click any donut to reveal its ingredients.</p>
+        <p class="section-subtitle">Tap <strong>View Ingredients</strong> to see what's inside, or tap <strong>Order</strong> to add items to your cart.</p>
 
         <!-- Category tabs (populated by JS) -->
         <div class="menu-tabs" role="tablist" aria-label="Donut categories" id="menu-tabs"></div>
@@ -150,112 +150,41 @@
     <section id="order" class="section section--order" aria-labelledby="order-heading">
       <div class="section-inner">
         <h2 id="order-heading" class="section-title">Place an Order</h2>
-        <p class="section-subtitle">Fill out the form below and we'll confirm your order!</p>
+        <p class="section-subtitle">Tap <strong>Order</strong> on any menu item to add it to your cart, then tap <strong>Checkout</strong> when you're ready!</p>
 
-        <div class="order-layout">
+        <!-- ── Browse-menu shortcut (shown only when checkout view is active) -->
+        <div id="checkout-browse-bar" class="checkout-browse-bar" hidden>
+          <a href="#menu" class="btn btn--secondary btn--sm">
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+            Browse Menu
+          </a>
+        </div>
 
-          <!-- ── Contact Form -->
-          <div class="order-form-wrap">
-            <form id="order-form" class="order-form" novalidate aria-label="Order form">
-              <fieldset class="form-fieldset">
-                <legend class="form-legend">Your Information</legend>
+        <!-- ── Empty state (shown by default) -->
+        <div id="checkout-empty" class="checkout-empty">
+          <div class="checkout-empty__icon" aria-hidden="true">
+            <i class="fa-solid fa-cart-shopping"></i>
+          </div>
+          <p class="checkout-empty__text">
+            Browse the menu above and tap <strong>Order</strong> on any item.<br>
+            When you're ready, tap <strong>Checkout</strong> to fill out your info!
+          </p>
+          <a href="#menu" class="btn btn--primary">
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+            Browse Menu
+          </a>
+        </div>
 
-                <div class="form-group">
-                  <label for="customer-name">Full Name <span aria-hidden="true" class="required">*</span></label>
-                  <input
-                    type="text"
-                    id="customer-name"
-                    name="name"
-                    autocomplete="name"
-                    placeholder="Jane Smith"
-                    required
-                    aria-required="true"
-                    aria-describedby="name-error"
-                  />
-                  <span class="field-error" id="name-error" role="alert" aria-live="polite"></span>
-                </div>
+        <!-- ── Checkout view (shown after clicking Checkout with items in cart) -->
+        <div id="checkout-view" class="checkout-view" hidden>
+          <div class="order-layout">
 
-                <div class="form-group">
-                  <label for="customer-phone">Phone Number <span aria-hidden="true" class="required">*</span></label>
-                  <input
-                    type="tel"
-                    id="customer-phone"
-                    name="phone"
-                    autocomplete="tel"
-                    placeholder="(555) 555-5555"
-                    required
-                    aria-required="true"
-                    aria-describedby="phone-error"
-                  />
-                  <span class="field-error" id="phone-error" role="alert" aria-live="polite"></span>
-                </div>
-
-                <div class="form-group">
-                  <label for="customer-email">Email Address <span aria-hidden="true" class="required">*</span></label>
-                  <input
-                    type="email"
-                    id="customer-email"
-                    name="email"
-                    autocomplete="email"
-                    placeholder="jane@example.com"
-                    required
-                    aria-required="true"
-                    aria-describedby="email-error"
-                  />
-                  <span class="field-error" id="email-error" role="alert" aria-live="polite"></span>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="order-date">Pickup Date <span aria-hidden="true" class="required">*</span></label>
-                    <input
-                      type="date"
-                      id="order-date"
-                      name="date"
-                      required
-                      aria-required="true"
-                      aria-describedby="date-error"
-                    />
-                    <span class="field-error" id="date-error" role="alert" aria-live="polite"></span>
-                  </div>
-
-                  <div class="form-group">
-                    <label for="order-time">Pickup Time <span aria-hidden="true" class="required">*</span></label>
-                    <input
-                      type="text"
-                      id="order-time"
-                      name="time"
-                      readonly
-                      required
-                      aria-required="true"
-                      aria-describedby="time-error"
-                      placeholder="Select a time"
-                    />
-                    <span class="field-error" id="time-error" role="alert" aria-live="polite"></span>
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label for="order-notes">Special Requests / Notes</label>
-                  <textarea
-                    id="order-notes"
-                    name="notes"
-                    rows="3"
-                    placeholder="Any allergies, special requests, or notes..."
-                    aria-label="Special requests or notes"
-                  ></textarea>
-                </div>
-              </fieldset>
-
-              <!-- ── Cart / Item Selection -->
-              <fieldset class="form-fieldset">
-                <legend class="form-legend">Select Your Donuts</legend>
-                <div class="order-item-list" id="order-item-list" role="list" aria-label="Donut selection list">
-                  <!-- Populated by JS from MENU_DATA -->
-                </div>
-              </fieldset>
-
-              <!-- ── Order Summary -->
+            <!-- Cart summary -->
+            <div class="checkout-cart-wrap">
+              <h3 class="checkout-cart-title">Your Order</h3>
+              <div id="checkout-cart-items" class="checkout-cart-items" role="list" aria-label="Items in your order">
+                <!-- Populated by showCheckoutView() -->
+              </div>
               <div class="order-summary" aria-label="Order summary" aria-live="polite">
                 <div class="summary-row">
                   <span>Items:</span>
@@ -266,25 +195,119 @@
                   <span id="summary-total">$0.00</span>
                 </div>
               </div>
+            </div>
 
-              <!-- ── Actions -->
-              <div class="form-actions">
-                <!-- Payment button placeholder — hook up to Stripe or similar later -->
-                <button type="button" class="btn btn--secondary" id="payment-btn" aria-label="Proceed to payment (coming soon)" disabled>
-                  <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
-                  Pay Now
-                  <span class="coming-soon-badge">Coming Soon</span>
-                </button>
-                <button type="submit" class="btn btn--primary" id="submit-order-btn" aria-label="Submit your order">
-                  <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-                  Submit Order
-                </button>
-              </div>
+            <!-- Your Information form -->
+            <div class="order-form-wrap">
+              <form id="order-form" class="order-form" novalidate aria-label="Order form">
+                <fieldset class="form-fieldset">
+                  <legend class="form-legend">Your Information</legend>
 
-            </form>
-          </div><!-- /.order-form-wrap -->
+                  <div class="form-group">
+                    <label for="customer-name">Full Name <span aria-hidden="true" class="required">*</span></label>
+                    <input
+                      type="text"
+                      id="customer-name"
+                      name="name"
+                      autocomplete="name"
+                      placeholder="Jane Smith"
+                      required
+                      aria-required="true"
+                      aria-describedby="name-error"
+                    />
+                    <span class="field-error" id="name-error" role="alert" aria-live="polite"></span>
+                  </div>
 
-        </div><!-- /.order-layout -->
+                  <div class="form-group">
+                    <label for="customer-phone">Phone Number <span aria-hidden="true" class="required">*</span></label>
+                    <input
+                      type="tel"
+                      id="customer-phone"
+                      name="phone"
+                      autocomplete="tel"
+                      placeholder="(555) 555-5555"
+                      required
+                      aria-required="true"
+                      aria-describedby="phone-error"
+                    />
+                    <span class="field-error" id="phone-error" role="alert" aria-live="polite"></span>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customer-email">Email Address <span aria-hidden="true" class="required">*</span></label>
+                    <input
+                      type="email"
+                      id="customer-email"
+                      name="email"
+                      autocomplete="email"
+                      placeholder="jane@example.com"
+                      required
+                      aria-required="true"
+                      aria-describedby="email-error"
+                    />
+                    <span class="field-error" id="email-error" role="alert" aria-live="polite"></span>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="order-date">Pickup Date <span aria-hidden="true" class="required">*</span></label>
+                      <input
+                        type="date"
+                        id="order-date"
+                        name="date"
+                        required
+                        aria-required="true"
+                        aria-describedby="date-error"
+                      />
+                      <span class="field-error" id="date-error" role="alert" aria-live="polite"></span>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="order-time">Pickup Time <span aria-hidden="true" class="required">*</span></label>
+                      <input
+                        type="text"
+                        id="order-time"
+                        name="time"
+                        readonly
+                        required
+                        aria-required="true"
+                        aria-describedby="time-error"
+                        placeholder="Select a time"
+                      />
+                      <span class="field-error" id="time-error" role="alert" aria-live="polite"></span>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="order-notes">Special Requests / Notes</label>
+                    <textarea
+                      id="order-notes"
+                      name="notes"
+                      rows="3"
+                      placeholder="Any allergies, special requests, or notes..."
+                      aria-label="Special requests or notes"
+                    ></textarea>
+                  </div>
+                </fieldset>
+
+                <!-- Actions -->
+                <div class="form-actions">
+                  <button type="button" class="btn btn--secondary" id="payment-btn" aria-label="Proceed to payment (coming soon)" disabled>
+                    <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
+                    Pay Now
+                    <span class="coming-soon-badge">Coming Soon</span>
+                  </button>
+                  <button type="submit" class="btn btn--primary" id="submit-order-btn" aria-label="Submit your order">
+                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                    Submit Order
+                  </button>
+                </div>
+              </form>
+            </div><!-- /.order-form-wrap -->
+
+          </div><!-- /.order-layout -->
+        </div><!-- /.checkout-view -->
+
       </div><!-- /.section-inner -->
     </section>
 
@@ -363,6 +386,19 @@
       </p>
     </div>
   </footer>
+
+  <!-- ═══════════════════════════════════════════════════════════ CHECKOUT FAB -->
+  <button
+    class="checkout-fab"
+    id="checkout-fab"
+    type="button"
+    hidden
+    aria-label="Checkout — 0 items in cart"
+  >
+    <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+    <span class="checkout-fab__count" id="checkout-fab-count" aria-hidden="true">0</span>
+    Checkout
+  </button>
 
   <!-- ═══════════════════════════════════════════════════════════ MODAL -->
   <div
