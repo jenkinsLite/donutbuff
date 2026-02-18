@@ -618,6 +618,7 @@ button { cursor: pointer; font-family: inherit; }
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   background: var(--color-surface);
+  min-width: 0; /* fieldsets default to min-width:min-content; override so they shrink on mobile */
 }
 
 .form-legend {
@@ -632,7 +633,7 @@ button { cursor: pointer; font-family: inherit; }
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-md);
 }
 
@@ -1127,6 +1128,32 @@ textarea { resize: vertical; min-height: 80px; }
 
   .form-actions { flex-direction: column; }
   .form-actions .btn { justify-content: center; }
+
+  /* Stack date/time inputs vertically on narrow screens */
+  .form-row {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-row .form-group { min-width: 0; width: 100%; }
+  .form-row input { min-width: 0; width: 100%; }
+
+  /* Glazed Letters: label wraps to its own line so controls don't overflow */
+  .letters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .letters-row__label {
+    flex: 0 0 100%;
+  }
+  /* grid-column has no effect in flex; push extras subtotal right instead */
+  .letters-row--extras .item-subtotal {
+    margin-left: auto;
+  }
+  /* column-direction controls don't need flex-end justification */
+  .order-item--letters .order-item__controls {
+    justify-content: flex-start;
+  }
 
   .footer-inner { grid-template-columns: 1fr; }
 }
