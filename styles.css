@@ -301,6 +301,14 @@ button { cursor: pointer; font-family: inherit; }
 
 .section--home .section-inner { position: relative; z-index: 2; }
 
+.hero-logo {
+  display: block;
+  width: clamp(4.4rem, 12vw, 8rem);
+  height: auto;
+  margin: 0 auto var(--space-md);
+  border-radius: 50%;
+}
+
 .hero-title {
   font-size: clamp(2.2rem, 6vw, 4rem);
   font-weight: 800;
@@ -734,6 +742,40 @@ textarea { resize: vertical; min-height: 80px; }
   font-size: 0.85rem;
   color: var(--color-text-muted);
   margin-top: 2px;
+}
+
+/* ── Glazed Letters order item ───────────────────────────────────────────── */
+.order-item__controls--letters {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+}
+
+.letters-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 32px 28px 32px 32px minmax(52px, auto);
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* Push extras subtotal into col 6, leaving col 5 (trash slot) empty */
+.letters-row--extras .item-subtotal {
+  grid-column: 6;
+}
+
+.letters-row__label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.letters-row__price {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.letters-row--disabled {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .order-item__controls {

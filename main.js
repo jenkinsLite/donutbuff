@@ -178,8 +178,12 @@ function buildMenuCard(item) {
       <div class="menu-card__header">
         <h3 class="menu-card__name">${item.name}</h3>
         <div class="menu-card__price" aria-label="Prices">
-          <div>${fmt(item.price)} each</div>
-          <div class="menu-card__price-dozen">${fmt(item.dozen)} / dozen</div>
+          ${item.isLetters
+            ? `<div>${fmt(item.pricePerGroup)} / ${item.groupSize} letters</div>
+               <div class="menu-card__price-dozen">${fmt(item.pricePerExtra)} ea additional</div>`
+            : `<div>${fmt(item.price)} each</div>
+               <div class="menu-card__price-dozen">${fmt(item.dozen)} / dozen</div>`
+          }
         </div>
       </div>
 
@@ -231,7 +235,7 @@ function initOrderSection() {
   if (!list) return;
 
   MENU_DATA.forEach(item => {
-    cart[item.id] = 0;
+    cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
     list.appendChild(buildOrderItem(item));
   });
 
@@ -245,6 +249,7 @@ function initOrderSection() {
 }
 
 function buildOrderItem(item) {
+  if (item.isLetters) return buildLettersOrderItem(item);
   const row = document.createElement('div');
   row.className = 'order-item';
   row.setAttribute('role', 'listitem');
@@ -257,7 +262,7 @@ function buildOrderItem(item) {
         src="${item.image}"
         alt="${item.name} donut"
         loading="lazy"
-        onerror="this.parentElement.innerHTML = '<i class=\\"fa-solid fa-circle-notch\\" aria-hidden=\\"true\\"></i>';"
+        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
       />
     </div>
 
@@ -320,14 +325,113 @@ function buildOrderItem(item) {
   return row;
 }
 
+function buildLettersOrderItem(item) {
+  const row = document.createElement('div');
+  row.className = 'order-item order-item--letters';
+  row.setAttribute('role', 'listitem');
+  row.setAttribute('data-item-id', item.id);
+  row.setAttribute('aria-label', `${item.name} — quantity selector`);
+
+  row.innerHTML = `
+    <div class="order-item__thumb" aria-hidden="true">
+      <img
+        src="${item.image}"
+        alt="${item.name} donut"
+        loading="lazy"
+        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
+      />
+    </div>
+
+    <div class="order-item__info">
+      <div class="order-item__name">${item.name}</div>
+      <div class="order-item__type">${item.type} Donut</div>
+    </div>
+
+    <div class="order-item__controls order-item__controls--letters">
+      <div class="letters-row" data-row="groups">
+        <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
+        <button class="qty-btn minus" data-action="minus" data-target="groups" aria-label="Remove one 6-letter pack">−</button>
+        <span class="qty-display" data-target="groups" aria-live="polite" aria-label="6-letter packs: 0">0</span>
+        <button class="qty-btn plus" data-action="plus" data-target="groups" aria-label="Add one 6-letter pack">+</button>
+        <button class="qty-btn delete" data-action="delete" data-target="groups" aria-label="Remove all 6-letter packs" title="Remove all">
+          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+        </button>
+        <span class="item-subtotal" data-target="groups" aria-live="polite">$0.00</span>
+      </div>
+
+      <div class="letters-row letters-row--extras letters-row--disabled" data-row="extras">
+        <span class="letters-row__label">Extra letter <span class="letters-row__price">${fmt(item.pricePerExtra)} ea</span></span>
+        <button class="qty-btn minus" data-action="minus" data-target="extras" aria-label="Remove one extra letter" disabled>−</button>
+        <span class="qty-display" data-target="extras" aria-live="polite" aria-label="Extra letters: 0">0</span>
+        <button class="qty-btn plus" data-action="plus" data-target="extras" aria-label="Add one extra letter" disabled>+</button>
+        <span class="item-subtotal" data-target="extras" aria-live="polite">$0.00</span>
+      </div>
+    </div>
+  `;
+
+  const extrasRow  = row.querySelector('[data-row="extras"]');
+  const extrasBtns = row.querySelectorAll('.qty-btn[data-target="extras"]');
+
+  function refreshExtrasLock() {
+    const locked = cart[item.id].groups === 0;
+    extrasRow.classList.toggle('letters-row--disabled', locked);
+    extrasBtns.forEach(btn => { btn.disabled = locked; });
+    if (locked && cart[item.id].extras > 0) {
+      cart[item.id].extras = 0;
+      row.querySelector('.qty-display[data-target="extras"]').textContent = '0';
+      row.querySelector('.item-subtotal[data-target="extras"]').textContent = '$0.00';
+    }
+  }
+
+  row.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const target = btn.dataset.target; // "groups" or "extras"
+
+      if (action === 'plus') {
+        cart[item.id][target]++;
+        // Auto-upgrade: every groupSize extras converts to +1 group
+        if (target === 'extras' && cart[item.id].extras >= item.groupSize) {
+          cart[item.id].groups++;
+          cart[item.id].extras = 0;
+        }
+      } else if (action === 'minus') {
+        if (cart[item.id][target] > 0) cart[item.id][target]--;
+      } else if (action === 'delete') {
+        cart[item.id][target] = 0;
+        if (target === 'groups') cart[item.id].extras = 0;
+      }
+
+      // Always refresh both rows since either can change
+      const { groups, extras } = cart[item.id];
+      row.querySelector('.qty-display[data-target="groups"]').textContent = groups;
+      row.querySelector('.item-subtotal[data-target="groups"]').textContent = fmt(groups * item.pricePerGroup);
+      row.querySelector('.qty-display[data-target="extras"]').textContent = extras;
+      row.querySelector('.item-subtotal[data-target="extras"]').textContent = fmt(extras * item.pricePerExtra);
+
+      row.classList.toggle('has-items', groups > 0 || extras > 0);
+      refreshExtrasLock();
+      updateOrderSummary();
+    });
+  });
+
+  return row;
+}
+
 function updateOrderSummary() {
   let totalQty   = 0;
   let totalPrice = 0;
 
   MENU_DATA.forEach(item => {
-    const qty = cart[item.id] || 0;
-    totalQty   += qty;
-    totalPrice += qty * item.price;
+    if (item.isLetters) {
+      const { groups = 0, extras = 0 } = cart[item.id] || {};
+      totalQty   += groups + extras;
+      totalPrice += groups * item.pricePerGroup + extras * item.pricePerExtra;
+    } else {
+      const qty = cart[item.id] || 0;
+      totalQty   += qty;
+      totalPrice += qty * item.price;
+    }
   });
 
   const countEl = $('#summary-count');
@@ -388,7 +492,14 @@ function validateForm(form) {
   });
 
   // Check that at least one item is in the cart
-  const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
+  let totalItems = 0;
+  MENU_DATA.forEach(item => {
+    if (item.isLetters) {
+      totalItems += cart[item.id]?.groups || 0;
+    } else {
+      totalItems += cart[item.id] || 0;
+    }
+  });
   if (totalItems === 0) {
     const list = $('#order-item-list');
     if (list) {
@@ -487,17 +598,27 @@ function showConfirmationModal(form) {
     summary.innerHTML = '';
 
     let total = 0;
-    const orderedItems = MENU_DATA.filter(item => (cart[item.id] || 0) > 0);
+    const orderedItems = MENU_DATA.filter(item =>
+      item.isLetters ? (cart[item.id]?.groups || 0) > 0 : (cart[item.id] || 0) > 0
+    );
 
     orderedItems.forEach(item => {
-      const qty      = cart[item.id];
-      const subtotal = qty * item.price;
+      let subtotal, label;
+      if (item.isLetters) {
+        const { groups, extras } = cart[item.id];
+        subtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
+        label = `${item.name} — ${groups} pack${groups !== 1 ? 's' : ''} of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+      } else {
+        const qty = cart[item.id];
+        subtotal = qty * item.price;
+        label = `${item.name} (${item.type}) × ${qty}`;
+      }
       total += subtotal;
 
       const row = document.createElement('div');
       row.className = 'modal-summary-row';
       row.innerHTML = `
-        <span>${item.name} (${item.type}) × ${qty}</span>
+        <span>${label}</span>
         <span>${fmt(subtotal)}</span>
       `;
       summary.appendChild(row);
@@ -543,11 +664,19 @@ function showConfirmationModal(form) {
     const resetHandler = () => {
       form.reset();
       MENU_DATA.forEach(item => {
-        cart[item.id] = 0;
+        cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
         const row = $(`[data-item-id="${item.id}"]`);
         if (row) {
-          row.querySelector('.qty-display').textContent = '0';
-          row.querySelector('.item-subtotal').textContent = '$0.00';
+          if (item.isLetters) {
+            row.querySelectorAll('.qty-display').forEach(d => { d.textContent = '0'; });
+            row.querySelectorAll('.item-subtotal').forEach(d => { d.textContent = '$0.00'; });
+            const extrasRow = row.querySelector('[data-row="extras"]');
+            if (extrasRow) extrasRow.classList.add('letters-row--disabled');
+            row.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => { btn.disabled = true; });
+          } else {
+            row.querySelector('.qty-display').textContent = '0';
+            row.querySelector('.item-subtotal').textContent = '$0.00';
+          }
           row.classList.remove('has-items');
         }
       });

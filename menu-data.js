@@ -11,6 +11,11 @@
  *   image     - path to photo (place real photos in images/)
  *   ingredients.topping - array of topping ingredients
  *   ingredients.dough   - array of dough ingredients
+ *
+ * Special items (isLetters: true) use different pricing fields:
+ *   pricePerGroup - price for one group of letters (number)
+ *   groupSize     - how many letters are in one group (number)
+ *   pricePerExtra - price per individual extra letter (number)
  */
 
 const MENU_DATA = [
@@ -259,4 +264,35 @@ const MENU_DATA = [
       ],
     },
   },
+  {
+    id: "yeast-glazed-letters",
+    name: "Glazed Letters",
+    type: "Yeast",
+    isLetters: true,
+    description:
+      "Spell out a special message with our classic glazed donuts. Order a 6-letter pack to get started, then add extra individual letters as needed.",
+    pricePerGroup: 20.0,
+    groupSize: 6,
+    pricePerExtra: 2.0,
+    image: "images/yeast-glazed-letters.jpg",
+    ingredients: {
+      topping: [
+        "powdered sugar",
+        "cocoa powder",
+        "butter",
+        "pure vanilla extract",
+        "water",
+      ],
+      dough: [
+        "unbleached wheat flour",
+        "water",
+        "grass-fed butter",
+        "sugar",
+        "eggs",
+        "yeast",
+        "pure vanilla extract",
+        "salt",
+      ],
+    },
+  }
 ];
