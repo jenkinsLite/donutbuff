@@ -673,6 +673,17 @@ input.input-error, textarea.input-error { border-color: var(--color-error); }
 
 textarea { resize: vertical; min-height: 80px; }
 
+/* iOS/webkit fix: date & time inputs apply internal layout that ignores width:100% */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+}
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit {
+  display: block;
+  padding: 0;
+}
+
 .field-error {
   font-size: 0.8rem;
   color: var(--color-error);
@@ -1134,7 +1145,7 @@ textarea { resize: vertical; min-height: 80px; }
     display: flex;
     flex-direction: column;
   }
-  .form-row .form-group { min-width: 0; width: 100%; }
+  .form-row .form-group { min-width: 0; width: 100%; overflow: hidden; }
   .form-row input { min-width: 0; width: 100%; }
 
   /* Glazed Letters: label wraps to its own line so controls don't overflow */
