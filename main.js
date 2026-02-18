@@ -486,6 +486,8 @@ function buildLettersOrderItem(item) {
   row.setAttribute('data-item-id', item.id);
   row.setAttribute('aria-label', `${item.name} — quantity selector`);
 
+  const cbId = `pack-cb-${item.id}`;
+
   row.innerHTML = `
     <div class="order-item__thumb" aria-hidden="true">
       <img
@@ -502,14 +504,12 @@ function buildLettersOrderItem(item) {
     </div>
 
     <div class="order-item__controls order-item__controls--letters">
-      <div class="letters-row" data-row="groups">
-        <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
-        <button class="qty-btn minus" data-action="minus" data-target="groups" aria-label="Remove one 6-letter pack">−</button>
-        <span class="qty-display" data-target="groups" aria-live="polite" aria-label="6-letter packs: 0">0</span>
-        <button class="qty-btn plus" data-action="plus" data-target="groups" aria-label="Add one 6-letter pack">+</button>
-        <button class="qty-btn delete" data-action="delete" data-target="groups" aria-label="Remove all 6-letter packs" title="Remove all">
-          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-        </button>
+      <div class="letters-row letters-row--pack" data-row="groups">
+        <label class="pack-checkbox-label" for="${cbId}">
+          <input type="checkbox" class="pack-checkbox" id="${cbId}" aria-label="Add 6-letter pack for ${fmt(item.pricePerGroup)}" />
+          <span class="pack-checkbox-custom" aria-hidden="true"></span>
+          <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
+        </label>
         <span class="item-subtotal" data-target="groups" aria-live="polite">$0.00</span>
       </div>
 
@@ -523,6 +523,7 @@ function buildLettersOrderItem(item) {
     </div>
   `;
 
+  const checkbox   = row.querySelector('.pack-checkbox');
   const extrasRow  = row.querySelector('[data-row="extras"]');
   const extrasBtns = row.querySelectorAll('.qty-btn[data-target="extras"]');
 
@@ -537,34 +538,27 @@ function buildLettersOrderItem(item) {
     }
   }
 
-  row.querySelectorAll('.qty-btn').forEach(btn => {
+  checkbox.addEventListener('change', () => {
+    cart[item.id].groups = checkbox.checked ? 1 : 0;
+    row.querySelector('.item-subtotal[data-target="groups"]').textContent =
+      checkbox.checked ? fmt(item.pricePerGroup) : '$0.00';
+    row.classList.toggle('has-items', checkbox.checked || cart[item.id].extras > 0);
+    refreshExtrasLock();
+    updateOrderSummary();
+  });
+
+  row.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const action = btn.dataset.action;
-      const target = btn.dataset.target; // "groups" or "extras"
-
       if (action === 'plus') {
-        cart[item.id][target]++;
-        // Auto-upgrade: every groupSize extras converts to +1 group
-        if (target === 'extras' && cart[item.id].extras >= item.groupSize) {
-          cart[item.id].groups++;
-          cart[item.id].extras = 0;
-        }
+        cart[item.id].extras++;
       } else if (action === 'minus') {
-        if (cart[item.id][target] > 0) cart[item.id][target]--;
-      } else if (action === 'delete') {
-        cart[item.id][target] = 0;
-        if (target === 'groups') cart[item.id].extras = 0;
+        if (cart[item.id].extras > 0) cart[item.id].extras--;
       }
-
-      // Always refresh both rows since either can change
-      const { groups, extras } = cart[item.id];
-      row.querySelector('.qty-display[data-target="groups"]').textContent = groups;
-      row.querySelector('.item-subtotal[data-target="groups"]').textContent = fmt(groups * item.pricePerGroup);
+      const extras = cart[item.id].extras;
       row.querySelector('.qty-display[data-target="extras"]').textContent = extras;
       row.querySelector('.item-subtotal[data-target="extras"]').textContent = fmt(extras * item.pricePerExtra);
-
-      row.classList.toggle('has-items', groups > 0 || extras > 0);
-      refreshExtrasLock();
+      row.classList.toggle('has-items', cart[item.id].groups > 0 || extras > 0);
       updateOrderSummary();
     });
   });
@@ -843,8 +837,10 @@ function showConfirmationModal(form) {
         const row = $(`[data-item-id="${item.id}"]`);
         if (row) {
           if (item.isLetters) {
-            row.querySelectorAll('.qty-display').forEach(d => { d.textContent = '0'; });
+            const cb = row.querySelector('.pack-checkbox');
+            if (cb) cb.checked = false;
             row.querySelectorAll('.item-subtotal').forEach(d => { d.textContent = '$0.00'; });
+            row.querySelector('.qty-display[data-target="extras"]').textContent = '0';
             const extrasRow = row.querySelector('[data-row="extras"]');
             if (extrasRow) extrasRow.classList.add('letters-row--disabled');
             row.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => { btn.disabled = true; });
