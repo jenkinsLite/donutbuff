@@ -303,7 +303,7 @@ button { cursor: pointer; font-family: inherit; }
 
 .hero-logo {
   display: block;
-  width: clamp(4.4rem, 12vw, 8rem);
+  width: clamp(13.2rem, 36vw, 24rem);
   height: auto;
   margin: 0 auto var(--space-md);
   border-radius: 50%;
