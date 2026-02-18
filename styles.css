@@ -365,22 +365,44 @@ button { cursor: pointer; font-family: inherit; }
 .deco-donut {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.25;
+  overflow: hidden;
+  mask-image: radial-gradient(circle at center, 
+    #fff 50%,      /* Opaque center: image is fully visible */
+    transparent 100% /* Transparent edge: image fades out */
+  );
 }
+.deco-donut img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.28;
+}
+/* existing three */
 .deco-donut--1 {
   width: 300px; height: 300px;
-  border: 50px solid var(--pink-1);
   top: -80px; right: -80px;
 }
 .deco-donut--2 {
-  width: 200px; height: 200px;
-  border: 35px solid var(--purple-1);
+  width: 180px; height: 180px;
   bottom: -40px; left: -40px;
 }
 .deco-donut--3 {
-  width: 120px; height: 120px;
-  border: 22px solid var(--blue-3);
+  width: 110px; height: 110px;
   top: 60%; right: 8%;
+}
+/* upper-left and middle additions */
+.deco-donut--4 {
+  width: 220px; height: 220px;
+  top: -40px; left: -60px;
+}
+.deco-donut--5 {
+  width: 140px; height: 140px;
+  top: 38%; left: 18%;
+}
+.deco-donut--6 {
+  width: 90px; height: 90px;
+  top: 18%; left: 40%;
 }
 
 /* ══════════════════════════════════════════════════ MENU SECTION */
