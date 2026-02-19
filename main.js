@@ -439,7 +439,7 @@ function showCheckoutView() {
 
   if (!hasItems) return;
 
-  if (emptyEl) emptyEl.hidden = true;
+  if (emptyEl) emptyEl.style.display = "none";
   viewEl.hidden = false;
   const browseBar = $('#checkout-browse-bar');
   if (browseBar) browseBar.hidden = false;
@@ -588,7 +588,7 @@ function _checkCheckoutEmpty() {
   const emptyEl = $('#checkout-empty');
   const viewEl  = $('#checkout-view');
   if (viewEl)  viewEl.hidden = true;
-  if (emptyEl) emptyEl.hidden = false;
+  if (emptyEl) emptyEl.style.display = null;
   const browseBar = $('#checkout-browse-bar');
   if (browseBar) browseBar.hidden = true;
 }
@@ -600,7 +600,7 @@ function _checkCheckoutEmpty() {
  */
 function _syncCheckoutItem(item) {
   const viewEl = $('#checkout-view');
-  if (!viewEl || viewEl.hidden) return;
+  if (!viewEl) return;
 
   const cartItems = $('#checkout-cart-items');
   if (!cartItems) return;
@@ -630,12 +630,13 @@ function _syncCheckoutItem(item) {
         if (qtyDisplayEl) qtyDisplayEl.textContent = qty;
       }
     } else {
-      // First time this item is ordered — append a new row
+      // First time this item is ordered — append a new row and reveal checkout view
       cartItems.appendChild(_buildCheckoutItem(item));
-      // Ensure the view is visible
-      const emptyEl = $('#checkout-empty');
-      if (emptyEl) emptyEl.hidden = true;
-      viewEl.hidden = false;
+      const emptyEl  = $('#checkout-empty');
+      const browseBar = $('#checkout-browse-bar');
+      if (emptyEl) emptyEl.style.display = "none";
+      viewEl.hidden  = false;
+      if (browseBar) browseBar.hidden = false;
     }
   } else if (existing) {
     existing.remove();
