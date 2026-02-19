@@ -26,6 +26,14 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
 const fmt = (n) => `$${n.toFixed(2)}`;
 
+/** Total cost for `qty` of a regular (non-letters) item.
+ *  Every complete dozen uses the dozen price; leftovers use the each price. */
+const calcItemTotal = (item, qty) => {
+  const dozens    = Math.floor(qty / 12);
+  const remainder = qty % 12;
+  return dozens * item.dozen + remainder * item.price;
+};
+
 // ── State ─────────────────────────────────────────────────────────────────────
 /**
  * Cart: { [itemId]: number | { groups: number, extras: number } }
@@ -313,7 +321,7 @@ function _buildRegularPanelHtml(item) {
       <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
       <span class="qty-display" aria-live="polite" aria-label="${item.name} quantity: ${qty}">${qty}</span>
       <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
-      <span class="item-subtotal" aria-live="polite">${fmt(qty * item.price)}</span>
+      <span class="item-subtotal" aria-live="polite">${fmt(calcItemTotal(item, qty))}</span>
     </div>
   `;
 }
@@ -362,7 +370,7 @@ function _wireRegularPanelControls(card, item) {
       const qty = cart[item.id];
       qtyDisplay.textContent = qty;
       qtyDisplay.setAttribute('aria-label', `${item.name} quantity: ${qty}`);
-      subtotal.textContent = fmt(qty * item.price);
+      subtotal.textContent = fmt(calcItemTotal(item, qty));
       updateOrderSummary();
       _syncCheckoutItem(item);
     });
@@ -462,7 +470,7 @@ function _buildCheckoutItem(item) {
     qtyLabel = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
   } else {
     const qty = cart[item.id];
-    subtotal = qty * item.price;
+    subtotal = calcItemTotal(item, qty);
     qtyLabel = `× ${qty}`;
   }
 
@@ -572,7 +580,7 @@ function _buildCheckoutItem(item) {
         const qty = cart[item.id];
         qtyDisplayEl.textContent = qty;
         qtyLabelEl.textContent   = `× ${qty}`;
-        subtotalEl.textContent   = fmt(qty * item.price);
+        subtotalEl.textContent   = fmt(calcItemTotal(item, qty));
       }
 
       updateOrderSummary();
@@ -626,7 +634,7 @@ function _syncCheckoutItem(item) {
       } else {
         const qty = cart[item.id];
         if (qtyLabelEl)   qtyLabelEl.textContent   = `× ${qty}`;
-        if (subtotalEl)   subtotalEl.textContent   = fmt(qty * item.price);
+        if (subtotalEl)   subtotalEl.textContent   = fmt(calcItemTotal(item, qty));
         if (qtyDisplayEl) qtyDisplayEl.textContent = qty;
       }
     } else {
@@ -844,7 +852,7 @@ function updateOrderSummary() {
     } else {
       const qty = cart[item.id] || 0;
       totalQty   += qty;
-      totalPrice += qty * item.price;
+      totalPrice += calcItemTotal(item, qty);
     }
   });
 
@@ -861,6 +869,13 @@ function updateOrderSummary() {
     fab.setAttribute('aria-label', `Checkout — ${totalQty} item${totalQty !== 1 ? 's' : ''} in cart`);
   }
   if (fabCount) fabCount.textContent = totalQty;
+
+  // Update dynamic anchors: Order Now hero button + Order nav link
+  const target      = totalQty > 0 ? '#order' : '#menu';
+  const heroCta     = $('.hero-cta');
+  const orderNavLink = $$('.nav-link').find(l => l.textContent.trim() === 'Order');
+  if (heroCta)      heroCta.href = target;
+  if (orderNavLink) orderNavLink.href = target;
 }
 
 // ══════════════════════════════════════════════════ FORM VALIDATION & SUBMIT
@@ -1042,7 +1057,7 @@ function showConfirmationModal(form) {
         label = `${item.name} — ${groups} pack${groups !== 1 ? 's' : ''} of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
       } else {
         const qty = cart[item.id];
-        subtotal = qty * item.price;
+        subtotal = calcItemTotal(item, qty);
         label = `${item.name} (${item.type}) × ${qty}`;
       }
       total += subtotal;
