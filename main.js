@@ -752,9 +752,22 @@ function applyTimeConstraints(dateInput, timeInput) {
     timeInput.disabled = false;
     if (altInput) altInput.disabled = false;
     if (_timePicker) {
-      _timePicker.set('minTime', hours[0]);
+      // On today, don't allow times already in the past
+      const today  = new Date();
+      const isToday = date.toDateString() === today.toDateString();
+      let minTime = hours[0];
+      if (isToday) {
+        let h = today.getHours();
+        let m = Math.floor(today.getMinutes() / 5) * 5 + 5; // next 5-min slot
+        if (m >= 60) { m -= 60; h += 1; }
+        if (h >= 24) { h = 23; m = 55; }
+        const nowStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        if (nowStr > hours[0]) minTime = nowStr;
+      }
+
+      _timePicker.set('minTime', minTime);
       _timePicker.set('maxTime', hours[1]);
-      if (timeInput.value && (timeInput.value < hours[0] || timeInput.value > hours[1])) {
+      if (timeInput.value && (timeInput.value < minTime || timeInput.value > hours[1])) {
         _timePicker.clear();
       }
     }
