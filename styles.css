@@ -398,11 +398,11 @@ button { cursor: pointer; font-family: inherit; }
 /* upper-left and middle additions */
 .deco-donut--4 {
   width: 220px; height: 220px;
-  top: -40px; left: -60px;
+  top: -160px; left: -100px;
 }
 .deco-donut--5 {
-  width: 140px; height: 140px;
-  top: 38%; left: 18%;
+  width: 240px; height: 240px;
+  top: 28%; left: 10%;
 }
 .deco-donut--6 {
   width: 90px; height: 90px;
