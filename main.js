@@ -441,6 +441,8 @@ function showCheckoutView() {
 
   if (emptyEl) emptyEl.hidden = true;
   viewEl.hidden = false;
+  const browseBar = $('#checkout-browse-bar');
+  if (browseBar) browseBar.hidden = false;
   updateOrderSummary();
   document.getElementById('order')?.scrollIntoView({ behavior: 'smooth' });
   setTimeout(() => $('#customer-name')?.focus(), 450);
@@ -587,6 +589,8 @@ function _checkCheckoutEmpty() {
   const viewEl  = $('#checkout-view');
   if (viewEl)  viewEl.hidden = true;
   if (emptyEl) emptyEl.hidden = false;
+  const browseBar = $('#checkout-browse-bar');
+  if (browseBar) browseBar.hidden = true;
 }
 
 /**
