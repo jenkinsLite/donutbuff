@@ -452,8 +452,7 @@ function showCheckoutView() {
   const browseBar = $('#checkout-browse-bar');
   if (browseBar) browseBar.hidden = false;
   updateOrderSummary();
-  document.getElementById('order')?.scrollIntoView({ behavior: 'smooth' });
-  setTimeout(() => $('#customer-name')?.focus(), 450);
+  setTimeout(() => $('#customer-name')?.focus(), 50);
 }
 
 /** Build and wire a single checkout cart item element. */
