@@ -1266,6 +1266,9 @@ input[type="time"]::-webkit-datetime-edit {
   }
 
   .footer-inner { grid-template-columns: 1fr; }
+
+  /* Hide per-card checkout button on mobile — FAB handles checkout */
+  .order-panel__checkout-btn { display: none; }
 }
 
 @media (min-width: 900px) {
