@@ -1237,8 +1237,10 @@ input[type="time"]::-webkit-datetime-edit {
   .form-row {
     display: flex;
     flex-direction: column;
+    gap: var(--space-xs);        /* tight gap — date & time feel grouped */
+    margin-bottom: var(--space-md); /* consistent spacing below the row */
   }
-  .form-row .form-group { min-width: 0; width: 100%; overflow: hidden; }
+  .form-row .form-group { min-width: 0; width: 100%; overflow: hidden; margin-bottom: 0; }
   .form-row input { min-width: 0; width: 100%; }
 
   /* Glazed Letters: both rows go flex on narrow screens */
