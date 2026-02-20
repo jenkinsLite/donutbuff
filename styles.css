@@ -71,8 +71,13 @@
 
   /* Nav height */
   --header-height: 80px;
-  /* Scroll offset for anchor links — accounts for sticky header + visual breathing room */
-  --scroll-offset: 138px;
+  /* Scroll offset — mobile: header-inner only (~83px + breathing room) */
+  --scroll-offset: 96px;
+}
+
+/* Desktop: full nav visible below header-inner, so offset needs to be larger */
+@media (min-width: 900px) {
+  :root { --scroll-offset: 138px; }
 }
 
 /* ── Reset & base ───────────────────────────────────────────────────────── */
