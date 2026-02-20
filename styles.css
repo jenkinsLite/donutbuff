@@ -96,7 +96,8 @@ body {
 img { display: block; max-width: 100%; height: auto; }
 a   { color: inherit; }
 ul  { list-style: none; }
-button { cursor: pointer; font-family: inherit; }
+button { cursor: pointer; font-family: inherit; touch-action: manipulation; }
+a      { touch-action: manipulation; }
 
 /* ── Skip link (accessibility) ─────────────────────────────────────────── */
 .skip-link {
@@ -1271,6 +1272,15 @@ input[type="time"]::-webkit-datetime-edit {
 
   /* Hide per-card checkout button on mobile — FAB handles checkout */
   .order-panel__checkout-btn { display: none; }
+}
+
+@media (max-width: 480px) {
+  /* Larger touch targets for qty +/−/trash buttons — prevents double-tap zoom */
+  .qty-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+  }
 }
 
 @media (min-width: 900px) {
