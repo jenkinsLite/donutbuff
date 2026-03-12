@@ -295,6 +295,26 @@ const MENU_DATA = [
     },
   },
   {
+    id: "build-your-own",
+    name: "Build Your Box",
+    type: "Assorted",
+    isAssorted: true,
+    description:
+      `Mix and match a dozen of any* assortment of our glazed, maple, cinnamon sugar, sprinkles, or dark-chocolate glazed.
+      <br><br>&nbsp;&nbsp;&nbsp;* jelly filled and apple fritters not included.`,
+    price: 21.6,  
+    dozen: 21.6,
+    image: "images/build-your-own.jpg",
+    ingredients: {
+      topping: [
+        "See individual donut for list of topping ingredients.",
+      ],
+      dough: [
+        "See individual donut for list of dough ingredients.",
+      ],
+    },
+  },
+  {
     id: "yeast-glazed-letters",
     name: "Glazed Letters",
     type: "Yeast",

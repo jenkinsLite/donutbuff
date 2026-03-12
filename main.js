@@ -34,6 +34,29 @@ const calcItemTotal = (item, qty) => {
   return dozens * item.dozen + remainder * item.price;
 };
 
+/** Menu items eligible for the Build Your Box assorted picker
+ *  (excludes apple fritter, letters, and the assorted item itself). */
+const _assortedEligibleItems = () =>
+  MENU_DATA.filter(m => !m.isLetters && !m.isAssorted && m.id !== 'yeast-apple-fritter');
+
+/** Total donuts selected inside an assorted box. */
+const _assortedTotal = (itemId) =>
+  Object.values(cart[itemId] || {}).reduce((a, b) => a + b, 0);
+
+/** Human-readable summary of assorted selections for checkout/modal display. */
+const _assortedCheckoutLabel = (item) => {
+  const total  = _assortedTotal(item.id);
+  const dozens = Math.floor(total / 12);
+  const parts  = Object.entries(cart[item.id] || {})
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      const sub = MENU_DATA.find(m => m.id === id);
+      return sub ? `${sub.name} ×${qty}` : '';
+    })
+    .filter(Boolean);
+  return `${dozens} dozen (${total} total): ${parts.join(', ')}`;
+};
+
 // ── State ─────────────────────────────────────────────────────────────────────
 /**
  * Cart: { [itemId]: number | { groups: number, extras: number } }
@@ -173,14 +196,25 @@ function buildMenuCard(item) {
   card.className = 'menu-card';
   card.setAttribute('aria-label', `${item.name} ${item.type} Donut`);
 
-  const toppingList   = item.ingredients.topping.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
-  const doughList     = item.ingredients.dough.map(t =>   `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+  let toppingList
+  let doughList
+
+  if(!item.isAssorted) {
+    toppingList   = item.ingredients.topping.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+    doughList     = item.ingredients.dough.map(t =>   `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+  } else {
+    toppingList   = item.ingredients.topping.map(t => `<li class=ingredient-tag>${t}</li>`).join('');
+    doughList     = item.ingredients.dough.map(t =>   `<li class=ingredient-tag>${t}</li>`).join('');
+  }
+
   const ingredPanelId = `ingredients-${item.id}`;
   const orderPanelId  = `order-panel-${item.id}`;
 
   const orderControlsHtml = item.isLetters
     ? _buildLettersPanelHtml(item)
-    : _buildRegularPanelHtml(item);
+    : item.isAssorted
+      ? _buildAssortedPanelHtml(item)
+      : _buildRegularPanelHtml(item);
 
   card.innerHTML = `
     <div class="menu-card__image-wrap">
@@ -205,8 +239,10 @@ function buildMenuCard(item) {
           ${item.isLetters
             ? `<div>${fmt(item.pricePerGroup)} / ${item.groupSize} letters</div>
                <div class="menu-card__price-dozen">${fmt(item.pricePerExtra)} ea additional</div>`
-            : `<div>${fmt(item.price)} each</div>
-               <div class="menu-card__price-dozen">${fmt(item.dozen)} / dozen</div>`
+            : item.isAssorted
+              ? `<div class="menu-card__price-dozen menu-card__price--assorted">${fmt(item.dozen)} / dozen</div>`
+              : `<div>${fmt(item.price)} each</div>
+                 <div class="menu-card__price-dozen">${fmt(item.dozen)} / dozen</div>`
           }
         </div>
       </div>
@@ -248,11 +284,11 @@ function buildMenuCard(item) {
         </div>
       </div>
 
-      <div class="order-panel" id="${orderPanelId}" role="region" aria-label="Order ${item.name}">
+      <div class="order-panel${item.isAssorted ? ' order-panel--assorted' : ''}" id="${orderPanelId}" role="region" aria-label="Order ${item.name}">
         <div class="order-panel__inner">
           ${orderControlsHtml}
           <div class="order-panel__actions">
-            ${!item.isLetters ? `<button class="qty-btn delete order-panel__delete-btn" data-action="delete" aria-label="Remove all ${item.name}" title="Remove from order"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
+            ${(!item.isLetters && !item.isAssorted) ? `<button class="qty-btn delete order-panel__delete-btn" data-action="delete" aria-label="Remove all ${item.name}" title="Remove from order"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
             <button class="btn btn--primary order-panel__checkout-btn" type="button" aria-label="Proceed to checkout">
               <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
               Checkout
@@ -298,6 +334,8 @@ function buildMenuCard(item) {
   // Wire up cart controls
   if (item.isLetters) {
     _wireLettersPanelControls(card, item);
+  } else if (item.isAssorted) {
+    _wireAssortedPanelControls(card, item);
   } else {
     _wireRegularPanelControls(card, item);
   }
@@ -417,6 +455,105 @@ function _wireLettersPanelControls(card, item) {
   });
 }
 
+// ══════════════════════════════════════════════════ ASSORTED PANEL
+
+function _buildAssortedPanelHtml(item) {
+  const eligible = _assortedEligibleItems();
+  const total    = _assortedTotal(item.id);
+  const isValid  = total >= 12 && total % 12 === 0;
+
+  const statusText = total === 0
+    ? 'Select at least 12 (must be a multiple of 12)'
+    : total % 12 !== 0
+      ? `${12 - (total % 12)} more to complete a dozen`
+      : `${total / 12} dozen`;
+
+  const buildItemHtml = (sub) => {
+    const qty = (cart[item.id] || {})[sub.id] || 0;
+    return `
+      <div class="assorted-picker-item" data-sub-id="${sub.id}">
+        <div class="assorted-picker-item__img-wrap">
+          <img src="${sub.image}" alt="${sub.name}" class="assorted-picker-item__img" loading="lazy"
+               onerror="this.style.display='none'" />
+        </div>
+        <span class="assorted-picker-item__name">${sub.name}</span>
+        <button class="qty-btn minus" data-action="minus" data-sub="${sub.id}" aria-label="Remove one ${sub.name}">−</button>
+        <span class="qty-display" data-sub="${sub.id}" aria-live="polite">${qty}</span>
+        <button class="qty-btn plus" data-action="plus" data-sub="${sub.id}" aria-label="Add one ${sub.name}">+</button>
+        <button class="qty-btn delete" data-action="delete" data-sub="${sub.id}" aria-label="Remove all ${sub.name}" title="Remove">
+          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+        </button>
+      </div>`;
+  };
+
+  const yeastItems = eligible.filter(m => m.type === 'Yeast');
+  const cakeItems  = eligible.filter(m => m.type === 'Cake');
+
+  return `
+    <div class="assorted-panel">
+      <div class="assorted-panel__header">
+        <span class="assorted-panel__count${isValid ? ' assorted-panel__count--valid' : ''}">
+          <span class="assorted-panel__count-num">${total}</span> selected
+        </span>
+        <span class="assorted-panel__status${isValid ? ' assorted-panel__status--valid' : ''}">${statusText}</span>
+      </div>
+      <div class="assorted-panel__section">
+        <h4 class="assorted-panel__section-title">Yeast</h4>
+        <div class="assorted-panel__items">${yeastItems.map(buildItemHtml).join('')}</div>
+      </div>
+      <div class="assorted-panel__section">
+        <h4 class="assorted-panel__section-title">Cake</h4>
+        <div class="assorted-panel__items">${cakeItems.map(buildItemHtml).join('')}</div>
+      </div>
+    </div>`;
+}
+
+function _refreshAssortedPanelHeader(panel, item) {
+  const total   = _assortedTotal(item.id);
+  const isValid = total >= 12 && total % 12 === 0;
+
+  const countNumEl = panel.querySelector('.assorted-panel__count-num');
+  const countEl    = panel.querySelector('.assorted-panel__count');
+  const statusEl   = panel.querySelector('.assorted-panel__status');
+
+  if (countNumEl) countNumEl.textContent = total;
+  if (countEl)    countEl.classList.toggle('assorted-panel__count--valid', isValid);
+
+  let statusText;
+  if (total === 0)           statusText = 'Select at least 12 (must be a multiple of 12)';
+  else if (total % 12 !== 0) statusText = `${12 - (total % 12)} more to complete a dozen`;
+  else                       statusText = `${total / 12} dozen`;
+
+  if (statusEl) {
+    statusEl.textContent = statusText;
+    statusEl.classList.toggle('assorted-panel__status--valid', isValid);
+  }
+}
+
+function _wireAssortedPanelControls(card, item) {
+  const panel = card.querySelector('.assorted-panel');
+  if (!panel) return;
+
+  panel.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const subId  = btn.dataset.sub;
+      if (!cart[item.id]) cart[item.id] = {};
+
+      if (action === 'plus')        cart[item.id][subId]++;
+      else if (action === 'minus')  { if (cart[item.id][subId] > 0) cart[item.id][subId]--; }
+      else if (action === 'delete') cart[item.id][subId] = 0;
+
+      const qtyEl = panel.querySelector(`.qty-display[data-sub="${subId}"]`);
+      if (qtyEl) qtyEl.textContent = cart[item.id][subId];
+
+      _refreshAssortedPanelHeader(panel, item);
+      updateOrderSummary();
+      _syncCheckoutItem(item);
+    });
+  });
+}
+
 // ══════════════════════════════════════════════════ CHECKOUT FAB
 
 function initCheckoutFab() {
@@ -437,9 +574,11 @@ function showCheckoutView() {
   let hasItems = false;
 
   MENU_DATA.forEach(item => {
-    const isOrdered = item.isLetters
-      ? (cart[item.id]?.groups || 0) > 0
-      : (cart[item.id] || 0) > 0;
+    const isOrdered = item.isAssorted
+      ? _assortedTotal(item.id) > 0
+      : item.isLetters
+        ? (cart[item.id]?.groups || 0) > 0
+        : (cart[item.id] || 0) > 0;
     if (!isOrdered) return;
     hasItems = true;
     cartItems.appendChild(_buildCheckoutItem(item));
@@ -464,6 +603,12 @@ function _buildCheckoutItem(item) {
   el.setAttribute('role', 'listitem');
   el.dataset.itemId = item.id;
 
+  if (item.isAssorted) {
+    el.classList.add('checkout-cart-item--assorted-box');
+    _buildAssortedCheckoutBox(el, item);
+    return el;
+  }
+
   let qtyLabel, subtotal;
   if (item.isLetters) {
     const { groups, extras } = cart[item.id];
@@ -477,22 +622,22 @@ function _buildCheckoutItem(item) {
 
   const editRowHtml = item.isLetters
     ? `<div class="checkout-cart-item__edit-row" hidden>
-         <span class="checkout-edit-label">Extra letters</span>
-         <button class="qty-btn minus" data-action="minus" aria-label="Remove one extra letter">−</button>
-         <span class="qty-display">${cart[item.id].extras}</span>
-         <button class="qty-btn plus" data-action="plus" aria-label="Add one extra letter">+</button>
-         <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
-           <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-         </button>
-       </div>`
-    : `<div class="checkout-cart-item__edit-row" hidden>
-         <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
-         <span class="qty-display">${cart[item.id]}</span>
-         <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
-         <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
-           <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-         </button>
-       </div>`;
+           <span class="checkout-edit-label">Extra letters</span>
+           <button class="qty-btn minus" data-action="minus" aria-label="Remove one extra letter">−</button>
+           <span class="qty-display">${cart[item.id].extras}</span>
+           <button class="qty-btn plus" data-action="plus" aria-label="Add one extra letter">+</button>
+           <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+           </button>
+         </div>`
+      : `<div class="checkout-cart-item__edit-row" hidden>
+           <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
+           <span class="qty-display">${cart[item.id]}</span>
+           <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
+           <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+           </button>
+         </div>`;
 
   el.innerHTML = `
     <div class="checkout-cart-item__thumb" aria-hidden="true">
@@ -517,19 +662,22 @@ function _buildCheckoutItem(item) {
     ${editRowHtml}
   `;
 
-  // Toggle edit row
+  // Toggle edit row (not shown for assorted items)
   const editBtn = el.querySelector('.checkout-edit-btn');
   const editRow = el.querySelector('.checkout-cart-item__edit-row');
-  editBtn.addEventListener('click', () => {
-    const opening = editRow.hidden;
-    editRow.hidden = !opening;
-    editBtn.setAttribute('aria-expanded', String(opening));
-    editBtn.textContent = opening ? 'Done' : 'Edit';
-  });
+  if (editBtn && editRow) {
+    editBtn.addEventListener('click', () => {
+      const opening = editRow.hidden;
+      editRow.hidden = !opening;
+      editBtn.setAttribute('aria-expanded', String(opening));
+      editBtn.textContent = opening ? 'Done' : 'Edit';
+    });
+  }
 
   // Delete button — remove item entirely
   el.querySelector('.checkout-delete-btn').addEventListener('click', () => {
-    cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
+    if (item.isLetters)  cart[item.id] = { groups: 0, extras: 0 };
+    else                 cart[item.id] = 0;
     _syncMenuCard(item);
     el.remove();
     _checkCheckoutEmpty();
@@ -591,6 +739,123 @@ function _buildCheckoutItem(item) {
   return el;
 }
 
+/** Build and wire the assorted box structure inside a checkout-cart-item el. */
+function _buildAssortedCheckoutBox(el, item) {
+  const total    = _assortedTotal(item.id);
+  const dozens   = Math.floor(total / 12);
+  const subtotal = dozens * item.dozen;
+
+  const header = document.createElement('div');
+  header.className = 'assorted-box-header';
+  header.innerHTML = `
+    <div class="checkout-cart-item__thumb" aria-hidden="true">
+      <img
+        src="${item.image}"
+        alt="${item.name}"
+        loading="lazy"
+        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
+      />
+    </div>
+    <div class="checkout-cart-item__info">
+      <div class="checkout-cart-item__name">${item.name}</div>
+      <div class="checkout-cart-item__qty assorted-box__count">${total} selected — ${dozens} dozen</div>
+    </div>
+    <div class="checkout-cart-item__price-col">
+      <span class="checkout-cart-item__subtotal assorted-box__total">${fmt(subtotal)}</span>
+      <div class="checkout-item__btns">
+        <button class="checkout-delete-btn" aria-label="Remove Build Your Box from order">Delete All</button>
+      </div>
+    </div>
+  `;
+  el.appendChild(header);
+
+  const subRowsContainer = document.createElement('div');
+  subRowsContainer.className = 'assorted-box-sub-rows';
+  _assortedEligibleItems().forEach(sub => {
+    if ((cart[item.id][sub.id] || 0) === 0) return;
+    subRowsContainer.appendChild(_buildAssortedSubRowEl(item, sub));
+  });
+  el.appendChild(subRowsContainer);
+
+  header.querySelector('.checkout-delete-btn').addEventListener('click', () => {
+    Object.keys(cart[item.id]).forEach(k => { cart[item.id][k] = 0; });
+    _syncMenuCard(item);
+    el.remove();
+    _checkCheckoutEmpty();
+    updateOrderSummary();
+  });
+}
+
+/** Build a single sub-row element for one donut type inside the assorted box. */
+function _buildAssortedSubRowEl(boxItem, sub) {
+  const qty   = cart[boxItem.id][sub.id] || 0;
+  const subEl = document.createElement('div');
+  subEl.className = 'assorted-box-sub-row';
+  subEl.dataset.subId = sub.id;
+
+  subEl.innerHTML = `
+    <div class="assorted-box-sub-row__thumb" aria-hidden="true">
+      <img
+        src="${sub.image}"
+        alt="${sub.name}"
+        loading="lazy"
+        onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-circle-notch&quot; aria-hidden=&quot;true&quot;></i>'"
+      />
+    </div>
+    <div class="assorted-box-sub-row__name">
+      ${sub.name} <span class="assorted-box-sub-row__type">${sub.type}</span>
+    </div>
+    <div class="assorted-box-sub-row__price-col">
+      <span class="assorted-box-sub-row__qty">× ${qty}</span>
+      <div class="checkout-item__btns">
+        <button class="checkout-edit-btn" aria-expanded="false" aria-label="Edit ${sub.name} quantity">Edit</button>
+      </div>
+    </div>
+    <div class="assorted-box-sub-row__edit-row" hidden>
+      <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${sub.name}">−</button>
+      <span class="qty-display">${qty}</span>
+      <button class="qty-btn plus" data-action="plus" aria-label="Add one ${sub.name}">+</button>
+      <button class="qty-btn delete" data-action="delete" aria-label="Remove ${sub.name} from box" title="Remove">
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+      </button>
+    </div>
+  `;
+
+  // Wire edit toggle
+  const editBtn = subEl.querySelector('.checkout-edit-btn');
+  const editRow = subEl.querySelector('.assorted-box-sub-row__edit-row');
+  editBtn.addEventListener('click', () => {
+    const opening = editRow.hidden;
+    editRow.hidden = !opening;
+    editBtn.setAttribute('aria-expanded', String(opening));
+    editBtn.textContent = opening ? 'Done' : 'Edit';
+  });
+
+  // Wire qty buttons — update cart, sync menu picker, sync checkout header+rows
+  subEl.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'plus')        cart[boxItem.id][sub.id]++;
+      else if (action === 'minus')  { if (cart[boxItem.id][sub.id] > 0) cart[boxItem.id][sub.id]--; }
+      else if (action === 'delete') cart[boxItem.id][sub.id] = 0;
+
+      // Sync menu card picker display
+      const menuCard = document.querySelector(`#order-panel-${boxItem.id}`)?.closest('.menu-card');
+      if (menuCard) {
+        const assortedPanel = menuCard.querySelector('.assorted-panel');
+        const qtyEl = assortedPanel?.querySelector(`.qty-display[data-sub="${sub.id}"]`);
+        if (qtyEl) qtyEl.textContent = cart[boxItem.id][sub.id];
+        if (assortedPanel) _refreshAssortedPanelHeader(assortedPanel, boxItem);
+      }
+
+      _syncCheckoutItem(boxItem);
+      updateOrderSummary();
+    });
+  });
+
+  return subEl;
+}
+
 function _checkCheckoutEmpty() {
   const cartItems = $('#checkout-cart-items');
   if (!cartItems || cartItems.children.length > 0) return;
@@ -615,9 +880,11 @@ function _syncCheckoutItem(item) {
   if (!cartItems) return;
 
   const existing  = cartItems.querySelector(`[data-item-id="${item.id}"]`);
-  const isOrdered = item.isLetters
-    ? (cart[item.id]?.groups || 0) > 0
-    : (cart[item.id] || 0) > 0;
+  const isOrdered = item.isAssorted
+    ? _assortedTotal(item.id) > 0
+    : item.isLetters
+      ? (cart[item.id]?.groups || 0) > 0
+      : (cart[item.id] || 0) > 0;
 
   if (isOrdered) {
     if (existing) {
@@ -626,7 +893,30 @@ function _syncCheckoutItem(item) {
       const subtotalEl   = existing.querySelector('.checkout-cart-item__subtotal');
       const qtyDisplayEl = existing.querySelector('.qty-display');
 
-      if (item.isLetters) {
+      if (item.isAssorted) {
+        const total   = _assortedTotal(item.id);
+        const dozens  = Math.floor(total / 12);
+        const countEl = existing.querySelector('.assorted-box__count');
+        const totalEl = existing.querySelector('.assorted-box__total');
+        if (countEl) countEl.textContent = `${total} selected — ${dozens} dozen`;
+        if (totalEl) totalEl.textContent = fmt(dozens * item.dozen);
+
+        const subRowsContainer = existing.querySelector('.assorted-box-sub-rows');
+        _assortedEligibleItems().forEach(sub => {
+          const qty         = cart[item.id][sub.id] || 0;
+          const existingSub = subRowsContainer.querySelector(`[data-sub-id="${sub.id}"]`);
+          if (qty === 0) {
+            if (existingSub) existingSub.remove();
+          } else if (existingSub) {
+            const qtySpan = existingSub.querySelector('.assorted-box-sub-row__qty');
+            const qtyDisp = existingSub.querySelector('.qty-display');
+            if (qtySpan) qtySpan.textContent = `× ${qty}`;
+            if (qtyDisp) qtyDisp.textContent = qty;
+          } else {
+            subRowsContainer.appendChild(_buildAssortedSubRowEl(item, sub));
+          }
+        });
+      } else if (item.isLetters) {
         const { groups, extras } = cart[item.id];
         const newSubtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
         if (qtyLabelEl)   qtyLabelEl.textContent   = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
@@ -658,7 +948,14 @@ function _syncMenuCard(item) {
   const menuCard = document.querySelector(`#order-panel-${item.id}`)?.closest('.menu-card');
   if (!menuCard) return;
 
-  if (item.isLetters) {
+  if (item.isAssorted) {
+    Object.keys(cart[item.id]).forEach(k => { cart[item.id][k] = 0; });
+    const assortedPanel = menuCard.querySelector('.assorted-panel');
+    if (assortedPanel) {
+      assortedPanel.querySelectorAll('.qty-display[data-sub]').forEach(el => { el.textContent = '0'; });
+      _refreshAssortedPanelHeader(assortedPanel, item);
+    }
+  } else if (item.isLetters) {
     const { groups = 0, extras = 0 } = cart[item.id] || {};
     const checkbox   = menuCard.querySelector('.pack-checkbox');
     const extrasRow  = menuCard.querySelector('[data-row="extras"]');
@@ -781,7 +1078,14 @@ function applyTimeConstraints(dateInput, timeInput) {
 function initOrderSection() {
   // Initialise cart state for all items
   MENU_DATA.forEach(item => {
-    cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
+    if (item.isLetters) {
+      cart[item.id] = { groups: 0, extras: 0 };
+    } else if (item.isAssorted) {
+      cart[item.id] = {};
+      _assortedEligibleItems().forEach(sub => { cart[item.id][sub.id] = 0; });
+    } else {
+      cart[item.id] = 0;
+    }
   });
 
   const dateInputEl = $('#order-date');
@@ -859,7 +1163,11 @@ function updateOrderSummary() {
   let totalPrice = 0;
 
   MENU_DATA.forEach(item => {
-    if (item.isLetters) {
+    if (item.isAssorted) {
+      const total = _assortedTotal(item.id);
+      totalQty   += total;
+      totalPrice += Math.floor(total / 12) * item.dozen;
+    } else if (item.isLetters) {
       const { groups = 0, extras = 0 } = cart[item.id] || {};
       totalQty   += groups + extras;
       totalPrice += groups * item.pricePerGroup + extras * item.pricePerExtra;
@@ -964,14 +1272,42 @@ function validateForm(form) {
     }
   }
 
+  // Validate assorted box quantities (must be ≥12 and a multiple of 12 if anything selected)
+  MENU_DATA.forEach(item => {
+    if (!item.isAssorted) return;
+    const total = _assortedTotal(item.id);
+    if (total === 0) return; // nothing selected — caught by empty-cart check below
+    const remaining = total % 12;
+    if (total < 12 || remaining !== 0) {
+      const need = remaining === 0 ? 0 : 12 - remaining;
+      let assortedErr = $('#assorted-error');
+      if (!assortedErr) {
+        assortedErr = document.createElement('p');
+        assortedErr.id = 'assorted-error';
+        assortedErr.className = 'field-error';
+        assortedErr.setAttribute('role', 'alert');
+        assortedErr.style.marginBottom = 'var(--space-sm)';
+        const actions = form.querySelector('.form-actions');
+        if (actions) form.insertBefore(assortedErr, actions);
+        else form.appendChild(assortedErr);
+      }
+      assortedErr.textContent = total < 12
+        ? `Build Your Box: You have ${total} selected. Please select at least 12 to make a dozen.`
+        : `Build Your Box: You have ${total} selected. Please add ${need} more to complete the next dozen.`;
+      assortedErr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      valid = false;
+    } else {
+      const assortedErr = $('#assorted-error');
+      if (assortedErr) assortedErr.remove();
+    }
+  });
+
   // Check that at least one item is in the cart
   let totalItems = 0;
   MENU_DATA.forEach(item => {
-    if (item.isLetters) {
-      totalItems += cart[item.id]?.groups || 0;
-    } else {
-      totalItems += cart[item.id] || 0;
-    }
+    if (item.isAssorted)     totalItems += _assortedTotal(item.id);
+    else if (item.isLetters) totalItems += cart[item.id]?.groups || 0;
+    else                     totalItems += cart[item.id] || 0;
   });
 
   if (totalItems === 0) {
@@ -1059,13 +1395,19 @@ function showConfirmationModal(form) {
     summary.innerHTML = '';
 
     let total = 0;
-    const orderedItems = MENU_DATA.filter(item =>
-      item.isLetters ? (cart[item.id]?.groups || 0) > 0 : (cart[item.id] || 0) > 0
-    );
+    const orderedItems = MENU_DATA.filter(item => {
+      if (item.isAssorted) return _assortedTotal(item.id) > 0;
+      if (item.isLetters)  return (cart[item.id]?.groups || 0) > 0;
+      return (cart[item.id] || 0) > 0;
+    });
 
     orderedItems.forEach(item => {
       let subtotal, label;
-      if (item.isLetters) {
+      if (item.isAssorted) {
+        const total = _assortedTotal(item.id);
+        subtotal = Math.floor(total / 12) * item.dozen;
+        label = `${item.name} — ${_assortedCheckoutLabel(item)}`;
+      } else if (item.isLetters) {
         const { groups, extras } = cart[item.id];
         subtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
         label = `${item.name} — ${groups} pack${groups !== 1 ? 's' : ''} of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
@@ -1118,7 +1460,9 @@ function showConfirmationModal(form) {
 
       // Reset cart state
       MENU_DATA.forEach(item => {
-        cart[item.id] = item.isLetters ? { groups: 0, extras: 0 } : 0;
+        if (item.isLetters)       cart[item.id] = { groups: 0, extras: 0 };
+        else if (item.isAssorted) Object.keys(cart[item.id]).forEach(k => { cart[item.id][k] = 0; });
+        else                      cart[item.id] = 0;
       });
 
       // Re-render menu cards (they read from cart{}, all panels show zeroed state)
