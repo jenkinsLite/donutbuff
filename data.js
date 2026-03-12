@@ -57,7 +57,7 @@ const MENU_DATA = [
     description:
       "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
     price: 2.0,
-    dozen: 20.0,
+    dozen: 22.8,
     image: "images/yeast-glazed.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
@@ -80,7 +80,7 @@ const MENU_DATA = [
     description:
       "Soft yeast donut rolled in a warm cinnamon and sugar coating — comfort in every bite.",
     price: 2.0,
-    dozen: 20.0,
+    dozen: 22.8,
     image: "images/yeast-cinnamon-sugar.jpg",
     ingredients: {
       topping: ["cinnamon", "sugar"],
@@ -103,7 +103,7 @@ const MENU_DATA = [
     description:
       "Fluffy yeast donut glazed with real pure maple syrup for a rich, natural sweetness.",
     price: 2.25,
-    dozen: 22.0,
+    dozen: 25.8,
     image: "images/yeast-maple.jpg",
     ingredients: {
       topping: [
@@ -132,7 +132,7 @@ const MENU_DATA = [
     description:
       "Pillowy yeast donut dipped in a deep, velvety dark chocolate glaze.",
     price: 2.25,
-    dozen: 22.0,
+    dozen: 25.8,
     image: "images/yeast-dark-chocolate-glazed.jpg",
     ingredients: {
       topping: [
@@ -161,7 +161,7 @@ const MENU_DATA = [
     description:
       "Our classic vanilla-glazed yeast donut topped with a rainbow of festive sprinkles.",
     price: 2.25,
-    dozen: 22.0,
+    dozen: 25.8,
     image: "images/yeast-sprinkles.jpg",
     ingredients: {
       topping: [
@@ -190,7 +190,7 @@ const MENU_DATA = [
     description:
       "Generous chunks of real apple folded into a cinnamon-spiced dough, fried golden and drizzled with vanilla glaze.",
     price: 3.0,
-    dozen: 30.0,
+    dozen: 34.8,
     image: "images/yeast-apple-fritter.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
@@ -217,7 +217,7 @@ const MENU_DATA = [
     description:
       "Dense and moist cake donut with a smooth vanilla glaze — a satisfying, sturdy classic.",
     price: 2.3,
-    dozen: 23.0,
+    dozen: 26.4,
     image: "images/cake-glazed.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
@@ -241,7 +241,7 @@ const MENU_DATA = [
     description:
       "Rich cake donut crowned with a pure maple glaze that soaks right in.",
     price: 2.4,
-    dozen: 24.0,
+    dozen: 27.6,
     image: "images/cake-maple.jpg",
     ingredients: {
       topping: [
@@ -271,7 +271,7 @@ const MENU_DATA = [
     description:
       "Tender cake donut wrapped in an indulgent dark chocolate glaze — chocolate lover's dream.",
     price: 2.4,
-    dozen: 24.0,
+    dozen: 27.6,
     image: "images/cake-dark-chocolate-glazed.jpg",
     ingredients: {
       topping: [
