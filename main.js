@@ -37,7 +37,8 @@ const calcItemTotal = (item, qty) => {
 /** Menu items eligible for the Build Your Box assorted picker
  *  (excludes apple fritter, letters, and the assorted item itself). */
 const _assortedEligibleItems = () =>
-  MENU_DATA.filter(m => !m.isLetters && !m.isAssorted && m.id !== 'yeast-apple-fritter');
+  // MENU_DATA.filter(m => !m.isLetters && !m.isAssorted && m.id !== 'yeast-apple-fritter');
+  MENU_DATA.filter(m => m.type !== 'Special' && !m.id.includes("filled") && !m.id.includes("fritter") && !m.id.includes("holes"));
 
 /** Total donuts selected inside an assorted box. */
 const _assortedTotal = (itemId) =>
@@ -465,7 +466,7 @@ function _buildAssortedPanelHtml(item) {
   const isValid  = total >= 12 && total % 12 === 0;
 
   const statusText = total === 0
-    ? 'Select at least 12 (must be a multiple of 12)'
+    ? 'Select any combination of 12'
     : total % 12 !== 0
       ? `${12 - (total % 12)} more to complete a dozen`
       : `${total / 12} dozen`;

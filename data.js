@@ -559,7 +559,7 @@ const MENU_DATA = [
     isAssorted: true,
     description:
       `Mix and match a dozen of any* assortment of our glazed, maple, cinnamon sugar, sprinkles, or dark-chocolate glazed.
-      <br><br>&nbsp;&nbsp;&nbsp;* jelly filled and apple fritters and specials not included.`,
+      <br><br>&nbsp;&nbsp;&nbsp;* jelly filled, donut holes, apple fritters and specials not included.`,
     price: 21.6,  
     dozen: 21.6,
     image: "images/build-your-own.jpg",

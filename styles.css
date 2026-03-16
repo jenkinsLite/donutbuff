@@ -1680,7 +1680,12 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 /* ── Assorted picker panel (inside order-panel for Build Your Box) ────────── */
-.assorted-panel { width: 100%; }
+.assorted-panel {
+  width: 100%;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .assorted-panel__header {
   display: flex;
