@@ -279,7 +279,7 @@ const MENU_DATA = [
         "grass-fed butter",
         "sugar",
         "eggs",
-        "jam (organic strawberries, organic cane sugar, water, pectin, citric acid)",
+        "organic stawberry jam",
         "yeast",
         "pure vanilla extract",
         "salt",
@@ -303,7 +303,7 @@ const MENU_DATA = [
         "grass-fed butter",
         "sugar",
         "eggs",
-        "jam (organic raspberries, organic cane sugar, water, pectin, citric acid)",
+        "organic raspberry jam",
         "yeast",
         "pure vanilla extract",
         "salt",
@@ -484,7 +484,7 @@ const MENU_DATA = [
   {
     id: "yeast-glazed-heart",
     name: "Glazed hearts with heart overlay",
-    type: "Yeast",
+    type: "Special",
     description:
       "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
     price: 1.85,
@@ -507,7 +507,7 @@ const MENU_DATA = [
   {
     id: "yeast-glazed-mini",
     name: "Glazed original mini",
-    type: "Yeast",
+    type: "Special",
     description:
       "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
     price: 18.0,
@@ -530,7 +530,7 @@ const MENU_DATA = [
   {
     id: "carrot-cake",
     name: "Carrot cake",
-    type: "Cake",
+    type: "Special",
     description:
       "Moist cake donut packed with fresh carrots and warm cinnamon, finished with a luscious cream cheese frosting.",
     price: 2.1,
@@ -554,7 +554,7 @@ const MENU_DATA = [
   {
     id: "build-your-own",
     name: "Build your box",
-    type: "Assorted",
+    type: "Special",
     isAssorted: true,
     description:
       `Mix and match a dozen of any* assortment of our glazed, maple, cinnamon sugar, sprinkles, or dark-chocolate glazed.
@@ -574,7 +574,7 @@ const MENU_DATA = [
   {
     id: "yeast-glazed-letters",
     name: "Glazed letters and numbers",
-    type: "Yeast",
+    type: "Special",
     isLetters: true,
     description:
       "Spell out a special message with our classic glazed donuts. Order a 6-letter pack to get started, then add extra individual letters as needed.",
@@ -599,7 +599,7 @@ const MENU_DATA = [
   {
     id: "yeast-glazed-letters-sprinkles",
     name: "Glazed letters and numbers with sprinkles",
-    type: "Yeast",
+    type: "Special",
     isLetters: true,
     description:
       "Spell out a special message with our classic glazed donuts. Order a 6-letter pack to get started, then add extra individual letters as needed.",
@@ -624,7 +624,7 @@ const MENU_DATA = [
   {
     id: "yeast-gluten-free",
     name: "Gluten free yeast",
-    type: "Yeast",
+    type: "Special",
     description:
       "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
     price: 27.0,
