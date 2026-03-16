@@ -509,7 +509,7 @@ const MENU_DATA = [
     name: "Glazed original mini",
     type: "Special",
     description:
-      "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
+      "Our classic Glazed original in mini form. Sold only by the dozen.",
     price: 18.0,
     dozen: 18.0,
     image: "images/yeast-glazed-mini.jpg",
