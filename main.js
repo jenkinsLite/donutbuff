@@ -31,7 +31,7 @@ const fmt = (n) => `$${n.toFixed(2)}`;
 const calcItemTotal = (item, qty) => {
   const dozens    = Math.floor(qty / 12);
   const remainder = qty % 12;
-  return dozens * item.dozen + remainder * item.price;
+  return item.isDozenOnly ? (qty * item.dozen) : (dozens * item.dozen + remainder * item.price);
 };
 
 /** Menu items eligible for the Build Your Box assorted picker
@@ -241,6 +241,8 @@ function buildMenuCard(item) {
                <div class="menu-card__price-dozen">${fmt(item.pricePerExtra)} ea additional</div>`
             : item.isAssorted
               ? `<div class="menu-card__price-dozen menu-card__price--assorted">${fmt(item.dozen)} / dozen</div>`
+              : item.isDozenOnly
+              ? `<div>${fmt(item.dozen)} / dozen</div>`
               : `<div>${fmt(item.price)} each</div>
                  <div class="menu-card__price-dozen">${fmt(item.dozen)} / dozen</div>`
           }

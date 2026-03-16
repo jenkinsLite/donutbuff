@@ -508,9 +508,10 @@ const MENU_DATA = [
     id: "yeast-glazed-mini",
     name: "Glazed original mini",
     type: "Special",
+    isDozenOnly: true,
     description:
       "Our classic Glazed original in mini form. Sold only by the dozen.",
-    price: 18.0,
+    price: 1.5,
     dozen: 18.0,
     image: "images/yeast-glazed-mini.jpg",
     ingredients: {
