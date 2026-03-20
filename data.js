@@ -48,6 +48,32 @@ const BUSINESS_CONFIG = {
   ],
 };
 
+// ── Shared ingredient arrays ──────────────────────────────────────────────────
+// Reused across items to avoid repetition. Spread into each item's dough array.
+
+const YEAST_DOUGH = [
+  "unbleached wheat flour",
+  "water",
+  "grass-fed butter",
+  "sugar",
+  "eggs",
+  "yeast",
+  "pure vanilla extract",
+  "salt",
+];
+
+const CAKE_DOUGH = [
+  "unbleached wheat flour",
+  "milk",
+  "sugar",
+  "grass-fed butter",
+  "eggs",
+  "baking powder",
+  "salt",
+  "nutmeg",
+  "cinnamon",
+];
+
 const MENU_DATA = [
   // ── Yeast Donuts ─────────────────────────────────────────────────────────
   {
@@ -61,16 +87,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -84,16 +101,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed-sprinkles.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt", "sprinkles"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -107,16 +115,7 @@ const MENU_DATA = [
     image: "images/yeast-cinnamon-sugar.jpg",
     ingredients: {
       topping: ["cinnamon", "sugar"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -136,16 +135,7 @@ const MENU_DATA = [
         "vanilla extract",
         "water",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -166,16 +156,7 @@ const MENU_DATA = [
         "water",
         "sprinkles",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -195,16 +176,7 @@ const MENU_DATA = [
         "milk",
         "maple extract",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -225,16 +197,7 @@ const MENU_DATA = [
         "maple extract",
         "sprinkles",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -279,7 +242,7 @@ const MENU_DATA = [
         "grass-fed butter",
         "sugar",
         "eggs",
-        "organic stawberry jam",
+        "organic strawberry jam",
         "yeast",
         "pure vanilla extract",
         "salt",
@@ -321,16 +284,7 @@ const MENU_DATA = [
     image: "images/donut-holes.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
 
@@ -346,17 +300,7 @@ const MENU_DATA = [
     image: "images/cake-glazed.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "milk",
-        "sugar",
-        "grass-fed butter",
-        "eggs",
-        "baking powder",
-        "salt",
-        "nutmeg",
-        "cinnamon",
-      ],
+      dough: [...CAKE_DOUGH],
     },
   },
   {
@@ -376,17 +320,7 @@ const MENU_DATA = [
         "milk",
         "maple extract",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "milk",
-        "sugar",
-        "grass-fed butter",
-        "eggs",
-        "baking powder",
-        "salt",
-        "nutmeg",
-        "cinnamon",
-      ],
+      dough: [...CAKE_DOUGH],
     },
   },
   {
@@ -407,17 +341,7 @@ const MENU_DATA = [
         "maple extract",
         "sprinkles",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "milk",
-        "sugar",
-        "grass-fed butter",
-        "eggs",
-        "baking powder",
-        "salt",
-        "nutmeg",
-        "cinnamon",
-      ],
+      dough: [...CAKE_DOUGH],
     },
   },
   {
@@ -437,17 +361,7 @@ const MENU_DATA = [
         "vanilla extract",
         "water",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "milk",
-        "sugar",
-        "grass-fed butter",
-        "eggs",
-        "baking powder",
-        "salt",
-        "nutmeg",
-        "cinnamon",
-      ],
+      dough: [...CAKE_DOUGH],
     },
   },
   {
@@ -468,17 +382,7 @@ const MENU_DATA = [
         "water",
         "sprinkles",
       ],
-      dough: [
-        "unbleached wheat flour",
-        "milk",
-        "sugar",
-        "grass-fed butter",
-        "eggs",
-        "baking powder",
-        "salt",
-        "nutmeg",
-        "cinnamon",
-      ],
+      dough: [...CAKE_DOUGH],
     },
   },
   {
@@ -492,16 +396,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed-heart.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -516,16 +411,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed-mini.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -560,7 +446,7 @@ const MENU_DATA = [
     description:
       `Mix and match a dozen of any* assortment of our glazed, maple, cinnamon sugar, sprinkles, or dark-chocolate glazed.
       <br><br>&nbsp;&nbsp;&nbsp;* jelly filled, donut holes, apple fritters and specials not included.`,
-    price: 21.6,  
+    price: 21.6,
     dozen: 21.6,
     image: "images/build-your-own.jpg",
     ingredients: {
@@ -585,16 +471,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed-letters.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -610,16 +487,7 @@ const MENU_DATA = [
     image: "images/yeast-glazed-letters-sprinkles.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt", "sprinkles"],
-      dough: [
-        "unbleached wheat flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: [...YEAST_DOUGH],
     },
   },
   {
@@ -633,16 +501,7 @@ const MENU_DATA = [
     image: "images/yeast-gluten-free.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
-      dough: [
-        "gluten free flour",
-        "water",
-        "grass-fed butter",
-        "sugar",
-        "eggs",
-        "yeast",
-        "pure vanilla extract",
-        "salt",
-      ],
+      dough: ["gluten free flour", ...YEAST_DOUGH.slice(1)],
     },
   },
 ];

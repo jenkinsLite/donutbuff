@@ -197,16 +197,10 @@ function buildMenuCard(item) {
   card.className = 'menu-card';
   card.setAttribute('aria-label', `${item.name} ${item.type} Donut`);
 
-  let toppingList
-  let doughList
-
-  if(!item.isAssorted) {
-    toppingList   = item.ingredients.topping.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
-    doughList     = item.ingredients.dough.map(t =>   `<li><span class="ingredient-tag">${t}</span></li>`).join('');
-  } else {
-    toppingList   = item.ingredients.topping.map(t => `<li class=ingredient-tag>${t}</li>`).join('');
-    doughList     = item.ingredients.dough.map(t =>   `<li class=ingredient-tag>${t}</li>`).join('');
-  }
+  const makeIngredientList = (arr) =>
+    arr.map(t => `<li><span class="ingredient-tag">${t}</span></li>`).join('');
+  const toppingList = makeIngredientList(item.ingredients.topping);
+  const doughList   = makeIngredientList(item.ingredients.dough);
 
   const ingredPanelId = `ingredients-${item.id}`;
   const orderPanelId  = `order-panel-${item.id}`;
@@ -568,7 +562,6 @@ function initCheckoutFab() {
 // ══════════════════════════════════════════════════ CHECKOUT VIEW
 
 function showCheckoutView() {
-  const emptyEl   = $('#checkout-empty');
   const viewEl    = $('#checkout-view');
   const cartItems = $('#checkout-cart-items');
   if (!viewEl || !cartItems) return;
@@ -589,10 +582,7 @@ function showCheckoutView() {
 
   if (!hasItems) return;
 
-  if (emptyEl) emptyEl.style.display = "none";
-  viewEl.hidden = false;
-  const browseBar = $('#checkout-browse-bar');
-  if (browseBar) browseBar.hidden = false;
+  _setCheckoutVisible(true);
   updateOrderSummary();
   document.getElementById('order')?.scrollIntoView({ behavior: 'smooth' });
   // preventScroll stops focus from triggering a second competing scroll
@@ -623,24 +613,20 @@ function _buildCheckoutItem(item) {
     qtyLabel = `× ${qty}`;
   }
 
-  const editRowHtml = item.isLetters
-    ? `<div class="checkout-cart-item__edit-row" hidden>
-           <span class="checkout-edit-label">Extra letters</span>
-           <button class="qty-btn minus" data-action="minus" aria-label="Remove one extra letter">−</button>
-           <span class="qty-display">${cart[item.id].extras}</span>
-           <button class="qty-btn plus" data-action="plus" aria-label="Add one extra letter">+</button>
-           <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
-             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-           </button>
-         </div>`
-      : `<div class="checkout-cart-item__edit-row" hidden>
-           <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
-           <span class="qty-display">${cart[item.id]}</span>
-           <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
-           <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
-             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-           </button>
-         </div>`;
+  const editLabel  = item.isLetters ? '<span class="checkout-edit-label">Extra letters</span>' : '';
+  const minusLabel = item.isLetters ? 'Remove one extra letter' : `Remove one ${item.name}`;
+  const plusLabel  = item.isLetters ? 'Add one extra letter'    : `Add one ${item.name}`;
+  const initQty    = item.isLetters ? cart[item.id].extras      : cart[item.id];
+  const editRowHtml = `
+    <div class="checkout-cart-item__edit-row" hidden>
+      ${editLabel}
+      <button class="qty-btn minus" data-action="minus" aria-label="${minusLabel}">−</button>
+      <span class="qty-display">${initQty}</span>
+      <button class="qty-btn plus" data-action="plus" aria-label="${plusLabel}">+</button>
+      <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+      </button>
+    </div>`;
 
   el.innerHTML = `
     <div class="checkout-cart-item__thumb" aria-hidden="true">
@@ -859,15 +845,20 @@ function _buildAssortedSubRowEl(boxItem, sub) {
   return subEl;
 }
 
+/** Show or hide the checkout view, empty-state placeholder, and browse bar together. */
+function _setCheckoutVisible(visible) {
+  const emptyEl   = $('#checkout-empty');
+  const viewEl    = $('#checkout-view');
+  const browseBar = $('#checkout-browse-bar');
+  if (emptyEl)   emptyEl.hidden   = visible;
+  if (viewEl)    viewEl.hidden    = !visible;
+  if (browseBar) browseBar.hidden = !visible;
+}
+
 function _checkCheckoutEmpty() {
   const cartItems = $('#checkout-cart-items');
   if (!cartItems || cartItems.children.length > 0) return;
-  const emptyEl = $('#checkout-empty');
-  const viewEl  = $('#checkout-view');
-  if (viewEl)  viewEl.hidden = true;
-  if (emptyEl) emptyEl.style.display = null;
-  const browseBar = $('#checkout-browse-bar');
-  if (browseBar) browseBar.hidden = true;
+  _setCheckoutVisible(false);
 }
 
 /**
@@ -934,11 +925,7 @@ function _syncCheckoutItem(item) {
     } else {
       // First time this item is ordered — append a new row and reveal checkout view
       cartItems.appendChild(_buildCheckoutItem(item));
-      const emptyEl  = $('#checkout-empty');
-      const browseBar = $('#checkout-browse-bar');
-      if (emptyEl) emptyEl.style.display = "none";
-      viewEl.hidden  = false;
-      if (browseBar) browseBar.hidden = false;
+      _setCheckoutVisible(true);
     }
   } else if (existing) {
     existing.remove();
@@ -979,7 +966,7 @@ function _syncMenuCard(item) {
     const qd  = menuCard.querySelector('.qty-display');
     const st  = menuCard.querySelector('.item-subtotal');
     if (qd) qd.textContent = qty;
-    if (st) st.textContent = fmt(qty * item.price);
+    if (st) st.textContent = fmt(calcItemTotal(item, qty));
   }
 }
 
@@ -1407,8 +1394,8 @@ function showConfirmationModal(form) {
     orderedItems.forEach(item => {
       let subtotal, label;
       if (item.isAssorted) {
-        const total = _assortedTotal(item.id);
-        subtotal = Math.floor(total / 12) * item.dozen;
+        const assortedQty = _assortedTotal(item.id);
+        subtotal = Math.floor(assortedQty / 12) * item.dozen;
         label = `${item.name} — ${_assortedCheckoutLabel(item)}`;
       } else if (item.isLetters) {
         const { groups, extras } = cart[item.id];
@@ -1472,10 +1459,7 @@ function showConfirmationModal(form) {
       renderMenuItems(_currentCategory);
 
       // Return to empty checkout state
-      const checkoutView  = $('#checkout-view');
-      const checkoutEmpty = $('#checkout-empty');
-      if (checkoutView)  checkoutView.hidden = true;
-      if (checkoutEmpty) checkoutEmpty.hidden = false;
+      _setCheckoutVisible(false);
 
       updateOrderSummary();
 
