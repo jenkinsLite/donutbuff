@@ -26,6 +26,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
 const fmt = (n) => `$${n.toFixed(2)}`;
 
+
 /** Total cost for `qty` of a regular (non-letters) item.
  *  Every complete dozen uses the dozen price; leftovers use the each price. */
 const calcItemTotal = (item, qty) => {
@@ -44,6 +45,17 @@ const _assortedEligibleItems = () =>
 const _assortedTotal = (itemId) =>
   Object.values(cart[itemId] || {}).reduce((a, b) => a + b, 0);
 
+/** Count of non-whitespace characters in a letters item's message. */
+const _lettersCount = (itemId) =>
+  (cart[itemId]?.message || '').replace(/\s/g, '').length;
+
+/** Total price for a letters item based on its current message length. */
+const calcLettersTotal = (item) => {
+  const count = _lettersCount(item.id);
+  if (count === 0) return 0;
+  return item.pricePerGroup + Math.max(0, count - item.groupSize) * item.pricePerExtra;
+};
+
 /** Human-readable summary of assorted selections for checkout/modal display. */
 const _assortedCheckoutLabel = (item) => {
   const total  = _assortedTotal(item.id);
@@ -60,7 +72,10 @@ const _assortedCheckoutLabel = (item) => {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 /**
- * Cart: { [itemId]: number | { groups: number, extras: number } }
+ * Cart: { [itemId]: number | { message: string } | { [subId]: number } }
+ *   Regular items: number (quantity)
+ *   Letters items: { message: string }
+ *   Assorted items: { [subItemId]: number }
  */
 const cart = {};
 
@@ -296,6 +311,12 @@ function buildMenuCard(item) {
     </div>
   `;
 
+  // Restore letters input value via DOM (avoids putting user text into an HTML attribute)
+  if (item.isLetters) {
+    const msgInput = card.querySelector('.letters-message-input');
+    if (msgInput) msgInput.value = cart[item.id]?.message || '';
+  }
+
   // Ingredients accordion
   const ingredToggle = card.querySelector('.ingredients-toggle');
   const ingredPanel  = card.querySelector('.ingredients-panel');
@@ -362,30 +383,29 @@ function _buildRegularPanelHtml(item) {
 }
 
 function _buildLettersPanelHtml(item) {
-  const cbId    = `pack-cb-${item.id}`;
-  const groups  = cart[item.id]?.groups || 0;
-  const extras  = cart[item.id]?.extras || 0;
-  const locked  = groups === 0;
+  const message = cart[item.id]?.message || '';
+  const count   = message.replace(/\s/g, '').length;
   return `
-    <div class="order-item__controls order-item__controls--letters">
-      <div class="letters-row letters-row--pack" data-row="groups">
-        <label class="pack-checkbox-label" for="${cbId}">
-          <span class="letters-row__label">6-letter pack <span class="letters-row__price">${fmt(item.pricePerGroup)}</span></span>
-          <input type="checkbox" class="pack-checkbox" id="${cbId}"
-            aria-label="Add 6-letter pack for ${fmt(item.pricePerGroup)}"
-            ${groups > 0 ? 'checked' : ''} />
-          <span class="pack-checkbox-custom" aria-hidden="true"></span>
-        </label>
-        <span class="item-subtotal" data-target="groups" aria-live="polite">${fmt(groups * item.pricePerGroup)}</span>
-      </div>
-      <div class="letters-row letters-row--extras${locked ? ' letters-row--disabled' : ''}" data-row="extras">
-        <span class="letters-row__label">Extra letter <span class="letters-row__price">${fmt(item.pricePerExtra)} ea</span></span>
-        <button class="qty-btn minus" data-action="minus" data-target="extras"
-          aria-label="Remove one extra letter" ${locked ? 'disabled' : ''}>−</button>
-        <span class="qty-display" data-target="extras" aria-live="polite" aria-label="Extra letters: ${extras}">${extras}</span>
-        <button class="qty-btn plus" data-action="plus" data-target="extras"
-          aria-label="Add one extra letter" ${locked ? 'disabled' : ''}>+</button>
-        <span class="item-subtotal" data-target="extras" aria-live="polite">${fmt(extras * item.pricePerExtra)}</span>
+    <div class="letters-message-panel">
+      <label class="letters-message-label" for="letters-input-${item.id}">
+        Your message
+        <span class="letters-row__price">${fmt(item.pricePerGroup)} / first ${item.groupSize} · ${fmt(item.pricePerExtra)} ea after</span>
+      </label>
+      <input
+        type="text"
+        id="letters-input-${item.id}"
+        class="letters-message-input"
+        placeholder="e.g. HAPPY BIRTHDAY"
+        maxlength="60"
+        autocomplete="off"
+        aria-label="Enter your message for ${item.name}"
+        aria-describedby="letters-count-${item.id}"
+      />
+      <div class="letters-message-footer">
+        <span class="letters-count" id="letters-count-${item.id}" aria-live="polite">
+          <span class="letters-count__num">${count}</span> letters
+        </span>
+        <span class="item-subtotal letters-subtotal" aria-live="polite">${fmt(calcLettersTotal(item))}</span>
       </div>
     </div>
   `;
@@ -413,42 +433,20 @@ function _wireRegularPanelControls(card, item) {
 }
 
 function _wireLettersPanelControls(card, item) {
-  const checkbox   = card.querySelector('.pack-checkbox');
-  const extrasRow  = card.querySelector('[data-row="extras"]');
-  const extrasBtns = card.querySelectorAll('.qty-btn[data-target="extras"]');
+  const input     = card.querySelector('.letters-message-input');
+  const countEl   = card.querySelector('.letters-count__num');
+  const subtotalEl = card.querySelector('.letters-subtotal');
 
-  function refreshExtrasLock() {
-    const locked = cart[item.id].groups === 0;
-    extrasRow.classList.toggle('letters-row--disabled', locked);
-    extrasBtns.forEach(btn => { btn.disabled = locked; });
-    if (locked && cart[item.id].extras > 0) {
-      cart[item.id].extras = 0;
-      card.querySelector('.qty-display[data-target="extras"]').textContent = '0';
-      card.querySelector('.item-subtotal[data-target="extras"]').textContent = '$0.00';
-    }
-  }
+  input.addEventListener('input', () => {
+    // Force uppercase; strip anything that isn't A-Z, 0-9, or space
+    const filtered = input.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    if (input.value !== filtered) input.value = filtered;
 
-  checkbox.addEventListener('change', () => {
-    cart[item.id].groups = checkbox.checked ? 1 : 0;
-    card.querySelector('.item-subtotal[data-target="groups"]').textContent =
-      checkbox.checked ? fmt(item.pricePerGroup) : '$0.00';
-    refreshExtrasLock();
+    cart[item.id].message = filtered;
+    countEl.textContent   = _lettersCount(item.id);
+    subtotalEl.textContent = fmt(calcLettersTotal(item));
     updateOrderSummary();
     _syncCheckoutItem(item);
-  });
-
-  card.querySelectorAll('.qty-btn[data-target="extras"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-      if (action === 'plus')       cart[item.id].extras++;
-      else if (action === 'minus') { if (cart[item.id].extras > 0) cart[item.id].extras--; }
-
-      const extras = cart[item.id].extras;
-      card.querySelector('.qty-display[data-target="extras"]').textContent = extras;
-      card.querySelector('.item-subtotal[data-target="extras"]').textContent = fmt(extras * item.pricePerExtra);
-      updateOrderSummary();
-      _syncCheckoutItem(item);
-    });
   });
 }
 
@@ -573,7 +571,7 @@ function showCheckoutView() {
     const isOrdered = item.isAssorted
       ? _assortedTotal(item.id) > 0
       : item.isLetters
-        ? (cart[item.id]?.groups || 0) > 0
+        ? _lettersCount(item.id) > 0
         : (cart[item.id] || 0) > 0;
     if (!isOrdered) return;
     hasItems = true;
@@ -604,29 +602,38 @@ function _buildCheckoutItem(item) {
 
   let qtyLabel, subtotal;
   if (item.isLetters) {
-    const { groups, extras } = cart[item.id];
-    subtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
-    qtyLabel = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+    subtotal = calcLettersTotal(item);
+    const count = _lettersCount(item.id);
+    qtyLabel = count > 0 ? `"${cart[item.id].message}" (${count} letters)` : '(no message entered)';
   } else {
     const qty = cart[item.id];
     subtotal = calcItemTotal(item, qty);
     qtyLabel = `× ${qty}`;
   }
 
-  const editLabel  = item.isLetters ? '<span class="checkout-edit-label">Extra letters</span>' : '';
-  const minusLabel = item.isLetters ? 'Remove one extra letter' : `Remove one ${item.name}`;
-  const plusLabel  = item.isLetters ? 'Add one extra letter'    : `Add one ${item.name}`;
-  const initQty    = item.isLetters ? cart[item.id].extras      : cart[item.id];
-  const editRowHtml = `
-    <div class="checkout-cart-item__edit-row" hidden>
-      ${editLabel}
-      <button class="qty-btn minus" data-action="minus" aria-label="${minusLabel}">−</button>
-      <span class="qty-display">${initQty}</span>
-      <button class="qty-btn plus" data-action="plus" aria-label="${plusLabel}">+</button>
-      <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
-        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-      </button>
-    </div>`;
+  let editRowHtml;
+  if (item.isLetters) {
+    editRowHtml = `
+      <div class="checkout-cart-item__edit-row checkout-cart-item__edit-row--letters" hidden>
+        <input type="text" class="letters-message-input letters-message-input--checkout"
+          maxlength="60" autocomplete="off"
+          aria-label="Edit your message for ${item.name}"
+        />
+        <span class="letters-count" aria-live="polite">
+          <span class="letters-count__num">${_lettersCount(item.id)}</span> letters
+        </span>
+      </div>`;
+  } else {
+    editRowHtml = `
+      <div class="checkout-cart-item__edit-row" hidden>
+        <button class="qty-btn minus" data-action="minus" aria-label="Remove one ${item.name}">−</button>
+        <span class="qty-display">${cart[item.id]}</span>
+        <button class="qty-btn plus" data-action="plus" aria-label="Add one ${item.name}">+</button>
+        <button class="qty-btn delete" data-action="delete" aria-label="Remove ${item.name} from order" title="Remove item">
+          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+        </button>
+      </div>`;
+  }
 
   el.innerHTML = `
     <div class="checkout-cart-item__thumb" aria-hidden="true">
@@ -651,6 +658,14 @@ function _buildCheckoutItem(item) {
     ${editRowHtml}
   `;
 
+  // Set user-supplied text via textContent/value — never via innerHTML
+  if (item.isLetters) {
+    const qtyEl = el.querySelector('.checkout-cart-item__qty');
+    if (qtyEl) qtyEl.textContent = qtyLabel;
+    const msgInput = el.querySelector('.letters-message-input--checkout');
+    if (msgInput) msgInput.value = cart[item.id].message || '';
+  }
+
   // Toggle edit row (not shown for assorted items)
   const editBtn = el.querySelector('.checkout-edit-btn');
   const editRow = el.querySelector('.checkout-cart-item__edit-row');
@@ -665,7 +680,7 @@ function _buildCheckoutItem(item) {
 
   // Delete button — remove item entirely
   el.querySelector('.checkout-delete-btn').addEventListener('click', () => {
-    if (item.isLetters)  cart[item.id] = { groups: 0, extras: 0 };
+    if (item.isLetters)  cart[item.id] = { message: '' };
     else                 cart[item.id] = 0;
     _syncMenuCard(item);
     el.remove();
@@ -673,35 +688,42 @@ function _buildCheckoutItem(item) {
     updateOrderSummary();
   });
 
-  // Wire qty controls
-  const qtyDisplayEl = el.querySelector('.qty-display');
-  const qtyLabelEl   = el.querySelector('.checkout-cart-item__qty');
-  const subtotalEl   = el.querySelector('.checkout-cart-item__subtotal');
+  const qtyLabelEl = el.querySelector('.checkout-cart-item__qty');
+  const subtotalEl = el.querySelector('.checkout-cart-item__subtotal');
 
-  el.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
+  if (item.isLetters) {
+    // Wire the inline message editor in the checkout edit row
+    const checkoutInput = el.querySelector('.letters-message-input--checkout');
+    const countNumEl    = el.querySelector('.letters-count__num');
+    if (checkoutInput) {
+      checkoutInput.addEventListener('input', () => {
+        const filtered = checkoutInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+        if (checkoutInput.value !== filtered) checkoutInput.value = filtered;
 
-      if (item.isLetters) {
-        if (action === 'plus')        cart[item.id].extras++;
-        else if (action === 'minus')  { if (cart[item.id].extras > 0) cart[item.id].extras--; }
-        else if (action === 'delete') { cart[item.id] = { groups: 0, extras: 0 }; }
+        cart[item.id].message = filtered;
+        const count = _lettersCount(item.id);
+
+        if (countNumEl) countNumEl.textContent = count;
+        if (qtyLabelEl) qtyLabelEl.textContent = count > 0
+          ? `"${filtered}" (${count} letters)`
+          : '(no message entered)';
+        if (subtotalEl) subtotalEl.textContent = fmt(calcLettersTotal(item));
 
         _syncMenuCard(item);
 
-        if (cart[item.id].groups === 0) {
+        if (count === 0) {
           el.remove();
           _checkCheckoutEmpty();
-          updateOrderSummary();
-          return;
         }
-
-        const { groups, extras } = cart[item.id];
-        const newSubtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
-        qtyDisplayEl.textContent = extras;
-        qtyLabelEl.textContent   = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
-        subtotalEl.textContent   = fmt(newSubtotal);
-      } else {
+        updateOrderSummary();
+      });
+    }
+  } else {
+    // Wire qty +/− buttons for regular items
+    const qtyDisplayEl = el.querySelector('.qty-display');
+    el.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
         if (action === 'plus')        cart[item.id]++;
         else if (action === 'minus')  { if (cart[item.id] > 0) cart[item.id]--; }
         else if (action === 'delete') cart[item.id] = 0;
@@ -716,14 +738,13 @@ function _buildCheckoutItem(item) {
         }
 
         const qty = cart[item.id];
-        qtyDisplayEl.textContent = qty;
-        qtyLabelEl.textContent   = `× ${qty}`;
-        subtotalEl.textContent   = fmt(calcItemTotal(item, qty));
-      }
-
-      updateOrderSummary();
+        if (qtyDisplayEl) qtyDisplayEl.textContent = qty;
+        if (qtyLabelEl)   qtyLabelEl.textContent   = `× ${qty}`;
+        if (subtotalEl)   subtotalEl.textContent   = fmt(calcItemTotal(item, qty));
+        updateOrderSummary();
+      });
     });
-  });
+  }
 
   return el;
 }
@@ -877,7 +898,7 @@ function _syncCheckoutItem(item) {
   const isOrdered = item.isAssorted
     ? _assortedTotal(item.id) > 0
     : item.isLetters
-      ? (cart[item.id]?.groups || 0) > 0
+      ? _lettersCount(item.id) > 0
       : (cart[item.id] || 0) > 0;
 
   if (isOrdered) {
@@ -911,11 +932,16 @@ function _syncCheckoutItem(item) {
           }
         });
       } else if (item.isLetters) {
-        const { groups, extras } = cart[item.id];
-        const newSubtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
-        if (qtyLabelEl)   qtyLabelEl.textContent   = `${groups} pack of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
-        if (subtotalEl)   subtotalEl.textContent   = fmt(newSubtotal);
-        if (qtyDisplayEl) qtyDisplayEl.textContent = extras;
+        const message = cart[item.id].message || '';
+        const count   = _lettersCount(item.id);
+        if (qtyLabelEl) qtyLabelEl.textContent = count > 0
+          ? `"${message}" (${count} letters)`
+          : '(no message entered)';
+        if (subtotalEl) subtotalEl.textContent = fmt(calcLettersTotal(item));
+        const countNumEl = existing.querySelector('.letters-count__num');
+        if (countNumEl) countNumEl.textContent = count;
+        const checkoutInput = existing.querySelector('.letters-message-input--checkout');
+        if (checkoutInput && checkoutInput !== document.activeElement) checkoutInput.value = message;
       } else {
         const qty = cart[item.id];
         if (qtyLabelEl)   qtyLabelEl.textContent   = `× ${qty}`;
@@ -946,21 +972,14 @@ function _syncMenuCard(item) {
       _refreshAssortedPanelHeader(assortedPanel, item);
     }
   } else if (item.isLetters) {
-    const { groups = 0, extras = 0 } = cart[item.id] || {};
-    const checkbox   = menuCard.querySelector('.pack-checkbox');
-    const extrasRow  = menuCard.querySelector('[data-row="extras"]');
-    const extrasBtns = menuCard.querySelectorAll('.qty-btn[data-target="extras"]');
-    const extrasQd   = menuCard.querySelector('.qty-display[data-target="extras"]');
-    const extrasSt   = menuCard.querySelector('.item-subtotal[data-target="extras"]');
-    const groupsSt   = menuCard.querySelector('.item-subtotal[data-target="groups"]');
-
-    if (checkbox)  checkbox.checked = groups > 0;
-    if (extrasQd)  extrasQd.textContent = extras;
-    if (extrasSt)  extrasSt.textContent = fmt(extras * item.pricePerExtra);
-    if (groupsSt)  groupsSt.textContent = fmt(groups * item.pricePerGroup);
-    const locked = groups === 0;
-    if (extrasRow) extrasRow.classList.toggle('letters-row--disabled', locked);
-    extrasBtns.forEach(btn => { btn.disabled = locked; });
+    const message    = cart[item.id]?.message || '';
+    const count      = _lettersCount(item.id);
+    const input      = menuCard.querySelector('.letters-message-input');
+    const countEl    = menuCard.querySelector('.letters-count__num');
+    const subtotalEl = menuCard.querySelector('.letters-subtotal');
+    if (input && input !== document.activeElement) input.value = message;
+    if (countEl)    countEl.textContent    = count;
+    if (subtotalEl) subtotalEl.textContent = fmt(calcLettersTotal(item));
   } else {
     const qty = cart[item.id] || 0;
     const qd  = menuCard.querySelector('.qty-display');
@@ -1069,7 +1088,7 @@ function initOrderSection() {
   // Initialise cart state for all items
   MENU_DATA.forEach(item => {
     if (item.isLetters) {
-      cart[item.id] = { groups: 0, extras: 0 };
+      cart[item.id] = { message: '' };
     } else if (item.isAssorted) {
       cart[item.id] = {};
       _assortedEligibleItems().forEach(sub => { cart[item.id][sub.id] = 0; });
@@ -1158,9 +1177,9 @@ function updateOrderSummary() {
       totalQty   += total;
       totalPrice += Math.floor(total / 12) * item.dozen;
     } else if (item.isLetters) {
-      const { groups = 0, extras = 0 } = cart[item.id] || {};
-      totalQty   += groups + extras;
-      totalPrice += groups * item.pricePerGroup + extras * item.pricePerExtra;
+      const count = _lettersCount(item.id);
+      totalQty   += count;
+      totalPrice += calcLettersTotal(item);
     } else {
       const qty = cart[item.id] || 0;
       totalQty   += qty;
@@ -1262,6 +1281,32 @@ function validateForm(form) {
     }
   }
 
+  // Validate letters items (must have at least 6 characters if anything entered)
+  MENU_DATA.forEach(item => {
+    if (!item.isLetters) return;
+    const count = _lettersCount(item.id);
+    if (count === 0) return; // nothing typed — caught by empty-cart check below
+    if (count < item.groupSize) {
+      let lettersErr = $(`#letters-error-${item.id}`);
+      if (!lettersErr) {
+        lettersErr = document.createElement('p');
+        lettersErr.id = `letters-error-${item.id}`;
+        lettersErr.className = 'field-error';
+        lettersErr.setAttribute('role', 'alert');
+        lettersErr.style.marginBottom = 'var(--space-sm)';
+        const actions = form.querySelector('.form-actions');
+        if (actions) form.insertBefore(lettersErr, actions);
+        else form.appendChild(lettersErr);
+      }
+      lettersErr.textContent = `${item.name}: Please enter at least ${item.groupSize} letters (you have ${count}).`;
+      lettersErr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      valid = false;
+    } else {
+      const lettersErr = $(`#letters-error-${item.id}`);
+      if (lettersErr) lettersErr.remove();
+    }
+  });
+
   // Validate assorted box quantities (must be ≥12 and a multiple of 12 if anything selected)
   MENU_DATA.forEach(item => {
     if (!item.isAssorted) return;
@@ -1296,7 +1341,7 @@ function validateForm(form) {
   let totalItems = 0;
   MENU_DATA.forEach(item => {
     if (item.isAssorted)     totalItems += _assortedTotal(item.id);
-    else if (item.isLetters) totalItems += cart[item.id]?.groups || 0;
+    else if (item.isLetters) totalItems += _lettersCount(item.id);
     else                     totalItems += cart[item.id] || 0;
   });
 
@@ -1387,7 +1432,7 @@ function showConfirmationModal(form) {
     let total = 0;
     const orderedItems = MENU_DATA.filter(item => {
       if (item.isAssorted) return _assortedTotal(item.id) > 0;
-      if (item.isLetters)  return (cart[item.id]?.groups || 0) > 0;
+      if (item.isLetters)  return _lettersCount(item.id) > 0;
       return (cart[item.id] || 0) > 0;
     });
 
@@ -1398,9 +1443,10 @@ function showConfirmationModal(form) {
         subtotal = Math.floor(assortedQty / 12) * item.dozen;
         label = `${item.name} — ${_assortedCheckoutLabel(item)}`;
       } else if (item.isLetters) {
-        const { groups, extras } = cart[item.id];
-        subtotal = groups * item.pricePerGroup + extras * item.pricePerExtra;
-        label = `${item.name} — ${groups} pack${groups !== 1 ? 's' : ''} of ${item.groupSize}${extras > 0 ? ` + ${extras} extra` : ''}`;
+        subtotal = calcLettersTotal(item);
+        const message = cart[item.id].message || '';
+        const count   = _lettersCount(item.id);
+        label = `${item.name} — "${message}" (${count} letters)`;
       } else {
         const qty = cart[item.id];
         subtotal = calcItemTotal(item, qty);
@@ -1408,9 +1454,14 @@ function showConfirmationModal(form) {
       }
       total += subtotal;
 
-      const row = document.createElement('div');
-      row.className = 'modal-summary-row';
-      row.innerHTML = `<span>${label}</span><span>${fmt(subtotal)}</span>`;
+      const row       = document.createElement('div');
+      row.className   = 'modal-summary-row';
+      const labelSpan = document.createElement('span');
+      const priceSpan = document.createElement('span');
+      labelSpan.textContent = label;
+      priceSpan.textContent = fmt(subtotal);
+      row.appendChild(labelSpan);
+      row.appendChild(priceSpan);
       summary.appendChild(row);
     });
 
@@ -1450,7 +1501,7 @@ function showConfirmationModal(form) {
 
       // Reset cart state
       MENU_DATA.forEach(item => {
-        if (item.isLetters)       cart[item.id] = { groups: 0, extras: 0 };
+        if (item.isLetters)       cart[item.id] = { message: '' };
         else if (item.isAssorted) Object.keys(cart[item.id]).forEach(k => { cart[item.id][k] = 0; });
         else                      cart[item.id] = 0;
       });

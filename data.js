@@ -405,7 +405,7 @@ const MENU_DATA = [
     type: "Special",
     isDozenOnly: true,
     description:
-      "Our classic Glazed original in mini form. Sold only by the dozen.",
+      "Our classic Glazed original in mini form. <br><br>  * Sold only by the dozen.",
     price: 1.5,
     dozen: 18.0,
     image: "images/yeast-glazed-mini.jpg",
@@ -494,11 +494,27 @@ const MENU_DATA = [
     id: "yeast-gluten-free",
     name: "Gluten free yeast",
     type: "Special",
+    isDozenOnly: true,
     description:
-      "Light and airy with a perfectly sweet vanilla glaze. The classic that started it all.",
-    price: 27.0,
+      "The classic you enjoy made with our gluten free dough. <br><br>  * Sold only by the dozen.",
+    price: 2.25,
     dozen: 27.0,
     image: "images/yeast-gluten-free.jpg",
+    ingredients: {
+      topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
+      dough: ["gluten free flour", ...YEAST_DOUGH.slice(1)],
+    },
+  },
+  {
+    id: "yeast-gluten-free-sprinkles",
+    name: "Gluten free yeast with sprinkles",
+    type: "Special",
+    isDozenOnly: true,
+    description:
+      "The classic with sprinkles you enjoy made with our gluten free dough. <br><br>  * Sold only by the dozen.",
+    price: 2.35,
+    dozen: 28.2,
+    image: "images/yeast-gluten-free-sprinkles.jpg",
     ingredients: {
       topping: ["powdered sugar", "milk", "pure vanilla extract", "salt"],
       dough: ["gluten free flour", ...YEAST_DOUGH.slice(1)],
