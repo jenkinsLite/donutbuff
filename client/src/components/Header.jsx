@@ -39,6 +39,28 @@ export default function Header() {
 
   const closeNav = () => setNavOpen(false);
 
+  const handleNavClick = (e, sectionId) => {
+    e.preventDefault();
+    setNavOpen(false);
+
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+
+    const offset = parseInt(getComputedStyle(document.documentElement).scrollPaddingTop) || 88;
+
+    // Only subtract nav height on mobile (hamburger visible) where the nav
+    // collapses and shifts the page layout as it closes. At 900px+ the nav
+    // is always visible in the header row so no correction is needed.
+    const isMobileNav = hamburgerRef.current &&
+      getComputedStyle(hamburgerRef.current).display !== 'none';
+    const navEl = navRef.current;
+    const navHeight = isMobileNav && navEl && navEl.offsetHeight > 0
+      ? navEl.scrollHeight : 0;
+
+    const top = target.getBoundingClientRect().top + window.scrollY - navHeight - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  };
+
   return (
     <header className="site-header" role="banner">
       <div className="header-row">
@@ -90,7 +112,7 @@ export default function Header() {
                 className={`nav-link${activeSection === id ? ' active' : ''}`}
                 aria-current={activeSection === id ? 'true' : 'false'}
                 aria-label={`Go to ${id.charAt(0).toUpperCase() + id.slice(1)} section`}
-                onClick={closeNav}
+                onClick={(e) => handleNavClick(e, id)}
               >
                 {id.charAt(0).toUpperCase() + id.slice(1)}
               </a>

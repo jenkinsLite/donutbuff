@@ -71,13 +71,13 @@
 
   /* Nav height */
   --header-height: 80px;
-  /* Scroll offset — mobile: header-inner only (~83px + breathing room) */
-  --scroll-offset: 96px;
+  /* mobile: header-inner (80px) + site-header border-bottom (3px) = 83px; +1 breathing room */
+  --scroll-offset: 84px;
 }
 
-/* Desktop: full nav visible below header-inner, so offset needs to be larger */
+/* desktop: nav links sit in the same row and make the header taller (~88px) */
 @media (min-width: 900px) {
-  :root { --scroll-offset: 138px; }
+  :root { --scroll-offset: 88px; }
 }
 
 /* ── Reset & base ───────────────────────────────────────────────────────── */
