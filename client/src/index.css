@@ -8,7 +8,7 @@
    Purples: #91a6ff
    Tans   : #e6b89c  #ead2ac  #ffd7ba
 
-   Font   : "Baloo 2" (balloon-style display font via Google Fonts)
+   Font   : "Baloo 2" (display font via Google Fonts)
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Custom properties ─────────────────────────────────────────────────── */
@@ -42,7 +42,7 @@
   --color-error:        #c0392b;
 
   /* Typography */
-  --font-base: 'Balloon', 'Baloo 2', 'Fredoka One', 'Nunito', 'Varela Round', system-ui, sans-serif;
+  --font-base: 'Baloo 2', 'Fredoka One', 'Nunito', 'Varela Round', system-ui, sans-serif;
 
   /* Spacing */
   --space-xs:  0.25rem;
@@ -1260,15 +1260,34 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 @media (min-width: 900px) {
-  .main-nav { border-top: none; }
-  .main-nav, .main-nav.open { max-height: none; overflow: visible; }
-  .main-nav ul {
-    justify-content: flex-end;
+  .header-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 0 var(--space-lg);
-    padding-bottom: var(--space-sm);
+  }
+  .header-inner {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    max-width: none;
+    margin: 0;
+    padding: var(--space-sm) 0;
+  }
+  .main-nav {
+    flex: 1;
+    border-top: none;
+    max-height: none;
+    overflow: visible;
+  }
+  .main-nav ul {
+    max-width: none;
+    margin: 0;
+    justify-content: flex-end;
+    padding: var(--space-sm) 0;
   }
   .hamburger { display: none; }
-  .header-inner { flex-wrap: nowrap; }
 }
 
 /* ── Reduced motion ─────────────────────────────────────────────────────── */
@@ -1335,8 +1354,6 @@ input[type="time"]::-webkit-datetime-edit {
   transform: translate(-50%, -50%) rotate(135deg);
 }
 
-/* Alt input (visible trigger when altInput:true is used) */
-#order-time + input.flatpickr-input { min-height: calc(2.6rem + 4px); }
 
 /* ══════════════════════════════════════════════════ MENU CARD — ORDER PANEL */
 

@@ -41,6 +41,7 @@ export default function Header() {
 
   return (
     <header className="site-header" role="banner">
+      <div className="header-row">
       <div className="header-inner">
         <div className="brand">
           <div className="logo-wrap">
@@ -97,6 +98,7 @@ export default function Header() {
           ))}
         </ul>
       </nav>
+      </div>
     </header>
   );
 }

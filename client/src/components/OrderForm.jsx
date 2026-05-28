@@ -30,6 +30,7 @@ export default function OrderForm({ onOrderSubmitted }) {
   const timeInputRef = useRef(null);
   const datePickerRef = useRef(null);
   const timePickerRef = useRef(null);
+  const selectedDateRef = useRef(new Date().toISOString().split('T')[0]);
 
   // ── Flatpickr init ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -38,9 +39,12 @@ export default function OrderForm({ onOrderSubmitted }) {
     datePickerRef.current = flatpickr(dateInputRef.current, {
       minDate: 'today',
       dateFormat: 'Y-m-d',
+      appendTo: document.body,
+      disableMobile: true,
       disable: [(date) => getHoursForDate(date, BUSINESS_CONFIG) === null],
       onChange: ([selectedDate]) => {
         const val = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+        selectedDateRef.current = val;
         setForm((prev) => ({ ...prev, date: val, time: '' }));
         if (timePickerRef.current) timePickerRef.current.clear();
         applyTimeConstraints(val);
@@ -52,16 +56,39 @@ export default function OrderForm({ onOrderSubmitted }) {
     timePickerRef.current = flatpickr(timeInputRef.current, {
       enableTime: true,
       noCalendar: true,
-      dateFormat: 'H:i',
-      altInput: true,
-      altFormat: 'h:i K',
+      dateFormat: 'h:i K',   // 12-hour display directly in the single input
       time_24hr: false,
       minuteIncrement: 5,
+      appendTo: document.body,
+      disableMobile: true,
       onChange: ([selectedDate]) => {
         if (!selectedDate) return;
         const h = String(selectedDate.getHours()).padStart(2, '0');
         const m = String(selectedDate.getMinutes()).padStart(2, '0');
-        setForm((prev) => ({ ...prev, time: `${h}:${m}` }));
+        const timeStr = `${h}:${m}`;
+        setForm((prev) => ({ ...prev, time: timeStr }));
+
+        const dateStr = selectedDateRef.current;
+        if (!dateStr) return;
+        const date = new Date(dateStr + 'T12:00:00');
+        const hours = getHoursForDate(date, BUSINESS_CONFIG);
+        if (!hours) return;
+
+        if (timeStr < hours[0] || timeStr > hours[1]) {
+          setErrors((prev) => ({ ...prev, time: `We're open ${fmt12(hours[0])} – ${fmt12(hours[1])} on this day.` }));
+          return;
+        }
+
+        const now = new Date();
+        if (date.toDateString() === now.toDateString()) {
+          const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          if (timeStr < nowStr) {
+            setErrors((prev) => ({ ...prev, time: 'Please select a pickup time in the future.' }));
+            return;
+          }
+        }
+
+        setErrors((prev) => ({ ...prev, time: '' }));
       },
     });
 
@@ -81,25 +108,13 @@ export default function OrderForm({ onOrderSubmitted }) {
     if (hours === null) {
       timePickerRef.current.clear();
       if (timeInputRef.current) timeInputRef.current.disabled = true;
-      const alt = timePickerRef.current.altInput;
-      if (alt) alt.disabled = true;
       setErrors((prev) => ({ ...prev, date: "Sorry, we're closed on this date. Please choose another day." }));
     } else {
-      const today = new Date();
-      const isToday = date.toDateString() === today.toDateString();
-      let minTime = hours[0];
-      if (isToday) {
-        let h = today.getHours();
-        let m = Math.floor(today.getMinutes() / 5) * 5 + 5;
-        if (m >= 60) { m -= 60; h += 1; }
-        const nowStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        if (nowStr > hours[0]) minTime = nowStr;
-      }
-      timePickerRef.current.set('minTime', minTime);
-      timePickerRef.current.set('maxTime', hours[1]);
+      // No min/max on the picker — flatpickr's minTime blocks the AM/PM toggle.
+      // Out-of-hours times are caught immediately in the time picker's onChange instead.
+      timePickerRef.current.set('minTime', '00:00');
+      timePickerRef.current.set('maxTime', '23:59');
       if (timeInputRef.current) timeInputRef.current.disabled = false;
-      const alt = timePickerRef.current.altInput;
-      if (alt) alt.disabled = false;
       setErrors((prev) => ({ ...prev, date: '' }));
     }
   };
@@ -383,6 +398,7 @@ export default function OrderForm({ onOrderSubmitted }) {
               required
               aria-required="true"
               aria-describedby="date-error"
+              defaultValue=""
               className={errors.date ? 'input-error' : ''}
               aria-invalid={!!errors.date}
               readOnly
@@ -403,9 +419,10 @@ export default function OrderForm({ onOrderSubmitted }) {
               aria-required="true"
               aria-describedby="time-error"
               placeholder="Select a time"
-              readOnly
+              defaultValue=""
               className={errors.time ? 'input-error' : ''}
               aria-invalid={!!errors.time}
+              readOnly
             />
             <span className="field-error" id="time-error" role="alert" aria-live="polite">
               {errors.time}
@@ -423,6 +440,7 @@ export default function OrderForm({ onOrderSubmitted }) {
             aria-label="Special requests or notes"
             value={form.notes}
             onChange={handleChange}
+            onBlur={handleBlur}
           />
         </div>
       </fieldset>
